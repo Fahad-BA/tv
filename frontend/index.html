@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Tracker - انما اييييييه</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class="min-h-screen">
+    <nav class="glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-indigo-400">TV Tracker</h1>
+        <div class="flex gap-6">
+            <a href="#" class="hover:text-indigo-400 transition">Dashboard</a>
+            <a href="#" class="hover:text-indigo-400 transition">Watchlist</a>
+            <a href="#" class="hover:text-indigo-400 transition">Import</a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-8">
+        <section class="mb-12">
+            <div class="flex justify-between items-end mb-6">
+                <h2 class="text-3xl font-bold">Your Dashboard</h2>
+                <button class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">Add New</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Example Card -->
+                <div class="glass rounded-xl overflow-hidden hover:scale-105 transition duration-300">
+                    <img src="https://via.placeholder.com/300x450" alt="Poster" class="w-full h-64 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-bold text-lg truncate">Example Show</h3>
+                        <p class="text-slate-400 text-sm">S02 E05 • 75% Complete</p>
+                        <div class="mt-4 w-full bg-slate-700 h-1.5 rounded-full">
+                            <div class="bg-indigo-500 h-1.5 rounded-full" style="width: 75%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
