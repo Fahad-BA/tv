@@ -8,6 +8,7 @@ import os
 import json
 import csv
 import io
+import zipfile
 
 from . import models, schemas, auth, tmdb, database
 
@@ -39,6 +40,44 @@ def login(form_data: schemas.UserLogin, db: Session = Depends(database.get_db)):
     access_token = auth.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.get("/api/me", response_model=schemas.User)
+def get_me(current_user: models.User = Depends(auth.get_current_user)):
+    return current_user
+
+@app.patch("/api/me", response_model=schemas.User)
+def update_me(data: schemas.UserUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    for field, value in data.dict(exclude_unset=True).items():
+        setattr(current_user, field, value)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@app.get("/api/stats")
+def get_stats(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    watchlist = db.query(models.WatchlistItem).filter(models.WatchlistItem.user_id == current_user.id).all()
+    total_episodes = sum(item.episodes_watched for item in watchlist)
+    
+    # TV Time style: 1 episode ~ 40 mins avg
+    total_minutes = total_episodes * 40
+    
+    days = total_minutes // (24 * 60)
+    hours = (total_minutes % (24 * 60)) // 60
+    mins = total_minutes % 60
+    months = days // 30
+    remaining_days = days % 30
+
+    return {
+        "total_shows": len(watchlist),
+        "total_episodes": total_episodes,
+        "time_spent": {
+            "months": int(months),
+            "days": int(remaining_days),
+            "hours": int(hours),
+            "mins": int(mins)
+        },
+        "favorites": [i for i in watchlist if i.is_favorite]
+    }
+
 @app.get("/api/search")
 def search_media(query: str, current_user: models.User = Depends(auth.get_current_user)):
     return tmdb.search(query)
@@ -61,45 +100,44 @@ async def import_tv_time(
     filename = file.filename.lower()
     items_added = 0
 
-    if filename.endswith('.json'):
-        try:
-            data = json.loads(content)
-            # Handle various TV Time JSON export formats
+    def process_file_content(file_data, fname):
+        nonlocal items_added
+        if fname.endswith('.json'):
+            data = json.loads(file_data)
             shows = data.get('shows', []) or data.get('to_watch', []) or data
             if not isinstance(shows, list): shows = [shows]
-            
             for entry in shows:
                 title = entry.get('name') or entry.get('title')
                 if title:
-                    # Minimal entry from import
                     models.add_watchlist_item(db, schemas.WatchlistItemCreate(
-                        tmdb_id=entry.get('id', 0),
-                        title=title,
-                        media_type='tv',
-                        status='watching'
+                        tmdb_id=entry.get('id', 0), title=title, media_type='tv', status='watching'
                     ), current_user.id)
                     items_added += 1
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to parse JSON: {str(e)}")
-
-    elif filename.endswith('.csv'):
-        try:
-            stream = io.StringIO(content.decode("utf-8"))
+        elif fname.endswith('.csv'):
+            stream = io.StringIO(file_data.decode("utf-8"))
             reader = csv.DictReader(stream)
             for row in reader:
-                title = row.get('name') or row.get('title') or row.get('Show Name')
+                title = row.get('name') or row.get('title') or row.get('Show Name') or row.get('show_name')
                 if title:
                     models.add_watchlist_item(db, schemas.WatchlistItemCreate(
-                        tmdb_id=0,
-                        title=title,
-                        media_type='tv',
-                        status='watching'
+                        tmdb_id=0, title=title, media_type='tv', status='watching'
                     ), current_user.id)
                     items_added += 1
+
+    if filename.endswith('.zip'):
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as z:
+                for zname in z.namelist():
+                    if zname.endswith(('.json', '.csv')):
+                        with z.open(zname) as f:
+                            process_file_content(f.read(), zname)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Failed to process ZIP: {str(e)}")
     else:
-        raise HTTPException(status_code=400, detail="Unsupported file format. Please upload JSON or CSV.")
+        try:
+            process_file_content(content, filename)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to process file: {str(e)}")
 
     return {"message": f"Successfully imported {items_added} items.", "count": items_added}
 
@@ -107,7 +145,6 @@ async def import_tv_time(
 
 frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
 
-# Serve the main index.html for specific frontend routes or anything that isn't /api
 @app.get("/")
 @app.get("/watchlist")
 @app.get("/import")
@@ -116,7 +153,6 @@ frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "
 async def serve_frontend():
     return FileResponse(os.path.join(frontend_path, "index.html"))
 
-# Mount the rest as static files
 app.mount("/", StaticFiles(directory=frontend_path), name="frontend")
 
 if __name__ == "__main__":
