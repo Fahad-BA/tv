@@ -23,136 +23,144 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- API Routes ---
-
+# --- Auth ---
 @app.post("/api/register", response_model=schemas.User)
 def register(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     db_user = auth.get_user_by_email(db, email=user.email)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    if db_user: raise HTTPException(status_code=400, detail="Email already registered")
     return auth.create_user(db=db, user=user)
 
 @app.post("/api/token")
 def login(form_data: schemas.UserLogin, db: Session = Depends(database.get_db)):
     user = auth.authenticate_user(db, form_data.email, form_data.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
-    access_token = auth.create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    if not user: raise HTTPException(status_code=401, detail="Incorrect email or password")
+    return {"access_token": auth.create_access_token(data={"sub": user.email}), "token_type": "bearer"}
 
+# --- User & Stats ---
 @app.get("/api/me", response_model=schemas.User)
 def get_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
 
-@app.patch("/api/me", response_model=schemas.User)
-def update_me(data: schemas.UserUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    for field, value in data.dict(exclude_unset=True).items():
-        setattr(current_user, field, value)
-    db.commit()
-    db.refresh(current_user)
-    return current_user
-
 @app.get("/api/stats")
 def get_stats(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    watchlist = db.query(models.WatchlistItem).filter(models.WatchlistItem.user_id == current_user.id).all()
-    total_episodes = sum(item.episodes_watched for item in watchlist)
-    
-    # TV Time style: 1 episode ~ 40 mins avg
-    total_minutes = total_episodes * 40
-    
-    days = total_minutes // (24 * 60)
-    hours = (total_minutes % (24 * 60)) // 60
-    mins = total_minutes % 60
-    months = days // 30
-    remaining_days = days % 30
-
+    watches = db.query(models.EpisodeWatch).filter(models.EpisodeWatch.user_id == current_user.id).count()
+    total_minutes = watches * 40
     return {
-        "total_shows": len(watchlist),
-        "total_episodes": total_episodes,
-        "time_spent": {
-            "months": int(months),
-            "days": int(remaining_days),
-            "hours": int(hours),
-            "mins": int(mins)
-        },
-        "favorites": [i for i in watchlist if i.is_favorite]
+        "total_episodes": watches,
+        "time_spent": {"months": total_minutes // 43200, "days": (total_minutes % 43200) // 1440, "hours": (total_minutes % 1440) // 60, "mins": total_minutes % 60}
     }
 
+# --- Media Tracking ---
 @app.get("/api/search")
 def search_media(query: str, current_user: models.User = Depends(auth.get_current_user)):
     return tmdb.search(query)
+
+@app.get("/api/watchlist")
+def get_watchlist(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    items = db.query(models.WatchlistItem).filter(models.WatchlistItem.user_id == current_user.id).all()
+    results = []
+    for item in items:
+        watched_count = db.query(models.EpisodeWatch).filter(models.EpisodeWatch.user_id == current_user.id, models.EpisodeWatch.show_id == item.tmdb_id).count()
+        d = item.__dict__.copy()
+        d['episodes_watched'] = watched_count
+        results.append(d)
+    return results
 
 @app.post("/api/watchlist")
 def add_to_watchlist(item: schemas.WatchlistItemCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     return models.add_watchlist_item(db, item, current_user.id)
 
-@app.get("/api/watchlist")
-def get_watchlist(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    return db.query(models.WatchlistItem).filter(models.WatchlistItem.user_id == current_user.id).all()
+@app.get("/api/shows/{show_id}/seasons")
+def get_show_seasons(show_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    details = tmdb.get_show_details(show_id)
+    seasons = []
+    for s in details.get('seasons', []):
+        s_num = s['season_number']
+        s_details = tmdb.get_season_details(show_id, s_num)
+        episodes = []
+        for ep in s_details.get('episodes', []):
+            ep_num = ep['episode_number']
+            watch = db.query(models.EpisodeWatch).filter(
+                models.EpisodeWatch.user_id == current_user.id,
+                models.EpisodeWatch.show_id == show_id,
+                models.EpisodeWatch.season_number == s_num,
+                models.EpisodeWatch.episode_number == ep_num
+            ).first()
+            ep['watched'] = watch is not None
+            ep['user_rating'] = watch.rating if watch else None
+            episodes.append(ep)
+        s['episodes'] = episodes
+        seasons.append(s)
+    return seasons
 
+@app.post("/api/episodes/{show_id}/{season}/{episode}/toggle")
+def toggle_episode(show_id: int, season: int, episode: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    watch = db.query(models.EpisodeWatch).filter(
+        models.EpisodeWatch.user_id == current_user.id,
+        models.EpisodeWatch.show_id == show_id,
+        models.EpisodeWatch.season_number == season,
+        models.EpisodeWatch.episode_number == episode
+    ).first()
+    if watch:
+        db.delete(watch)
+        status = False
+    else:
+        db.add(models.EpisodeWatch(user_id=current_user.id, show_id=show_id, season_number=season, episode_number=episode))
+        status = True
+    db.commit()
+    return {"watched": status}
+
+@app.post("/api/shows/{show_id}/seasons/toggle")
+def toggle_season(show_id: int, data: schemas.SeasonToggle, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    for ep_num in data.episodes:
+        existing = db.query(models.EpisodeWatch).filter(
+            models.EpisodeWatch.user_id == current_user.id,
+            models.EpisodeWatch.show_id == show_id,
+            models.EpisodeWatch.season_number == data.season_number,
+            models.EpisodeWatch.episode_number == ep_num
+        ).first()
+        if not existing:
+            db.add(models.EpisodeWatch(user_id=current_user.id, show_id=show_id, season_number=data.season_number, episode_number=ep_num))
+    db.commit()
+    return {"message": "Season marked as watched"}
+
+# --- Import ---
 @app.post("/api/import")
-async def import_tv_time(
-    file: UploadFile = File(...), 
-    db: Session = Depends(database.get_db), 
-    current_user: models.User = Depends(auth.get_current_user)
-):
+async def import_tv_time(file: UploadFile = File(...), db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     content = await file.read()
     filename = file.filename.lower()
     items_added = 0
-
-    def process_file_content(file_data, fname):
+    
+    def process_import(data_stream, fname):
         nonlocal items_added
-        if fname.endswith('.json'):
-            data = json.loads(file_data)
-            shows = data.get('shows', []) or data.get('to_watch', []) or data
-            if not isinstance(shows, list): shows = [shows]
-            for entry in shows:
-                title = entry.get('name') or entry.get('title')
-                if title:
-                    models.add_watchlist_item(db, schemas.WatchlistItemCreate(
-                        tmdb_id=entry.get('id', 0), title=title, media_type='tv', status='watching'
-                    ), current_user.id)
-                    items_added += 1
-        elif fname.endswith('.csv'):
-            stream = io.StringIO(file_data.decode("utf-8"))
-            reader = csv.DictReader(stream)
+        if fname.endswith('.csv'):
+            reader = csv.DictReader(io.StringIO(data_stream.decode('utf-8')))
             for row in reader:
-                title = row.get('name') or row.get('title') or row.get('Show Name') or row.get('show_name')
-                if title:
-                    models.add_watchlist_item(db, schemas.WatchlistItemCreate(
-                        tmdb_id=0, title=title, media_type='tv', status='watching'
-                    ), current_user.id)
+                # Basic TV Time CSV mapping
+                show_name = row.get('tv_show_name') or row.get('show_name')
+                if show_name:
+                    models.add_watchlist_item(db, schemas.WatchlistItemCreate(tmdb_id=0, title=show_name, media_type='tv'), current_user.id)
+                    s_num = int(row.get('season_number', 0))
+                    e_num = int(row.get('episode_number', 0))
+                    if s_num and e_num:
+                        db.add(models.EpisodeWatch(user_id=current_user.id, show_id=0, season_number=s_num, episode_number=e_num))
                     items_added += 1
 
     if filename.endswith('.zip'):
-        try:
-            with zipfile.ZipFile(io.BytesIO(content)) as z:
-                for zname in z.namelist():
-                    if zname.endswith(('.json', '.csv')):
-                        with z.open(zname) as f:
-                            process_file_content(f.read(), zname)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to process ZIP: {str(e)}")
-    else:
-        try:
-            process_file_content(content, filename)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to process file: {str(e)}")
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            for n in z.namelist():
+                if n.endswith('.csv'): process_import(z.read(n), n)
+    else: process_import(content, filename)
+    db.commit()
+    return {"message": f"Imported {items_added} items"}
 
-    return {"message": f"Successfully imported {items_added} items.", "count": items_added}
-
-# --- Static File Serving ---
-
+# --- Static ---
 frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
-
 @app.get("/")
 @app.get("/watchlist")
 @app.get("/import")
-@app.get("/upcoming")
 @app.get("/profile")
-async def serve_frontend():
-    return FileResponse(os.path.join(frontend_path, "index.html"))
-
+async def serve_frontend(): return FileResponse(os.path.join(frontend_path, "index.html"))
 app.mount("/", StaticFiles(directory=frontend_path), name="frontend")
 
 if __name__ == "__main__":

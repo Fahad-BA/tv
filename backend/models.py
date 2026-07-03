@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Text
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Text, DateTime
 from sqlalchemy.orm import relationship, Session
+from datetime import datetime
 from .database import Base
 from . import schemas
 
@@ -22,30 +23,26 @@ class WatchlistItem(Base):
     media_type = Column(String) # 'movie' or 'tv'
     poster_path = Column(String)
     status = Column(String, default="planning") # planning, watching, completed
-    episodes_watched = Column(Integer, default=0)
-    total_episodes = Column(Integer, default=0)
     user_rating = Column(Float, nullable=True)
     is_favorite = Column(Boolean, default=False)
 
+class EpisodeWatch(Base):
+    __tablename__ = "episode_watches"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    show_id = Column(Integer) # TMDB Show ID
+    season_number = Column(Integer)
+    episode_number = Column(Integer)
+    watched_at = Column(DateTime, default=datetime.utcnow)
+    rating = Column(Integer, nullable=True) # 1-5 or emotional reaction mapping
+
 def add_watchlist_item(db: Session, item: schemas.WatchlistItemCreate, user_id: int):
-    # Check if exists
     existing = db.query(WatchlistItem).filter(
         WatchlistItem.user_id == user_id, 
-        WatchlistItem.tmdb_id == item.tmdb_id,
-        WatchlistItem.title == item.title
+        WatchlistItem.tmdb_id == item.tmdb_id
     ).first()
-    
-    if existing:
-        return existing
-
-    db_item = WatchlistItem(
-        user_id=user_id,
-        tmdb_id=item.tmdb_id,
-        title=item.title,
-        media_type=item.media_type,
-        poster_path=item.poster_path,
-        status=item.status,
-    )
+    if existing: return existing
+    db_item = WatchlistItem(user_id=user_id, **item.dict())
     db.add(db_item)
     db.commit()
     db.refresh(db_item)
