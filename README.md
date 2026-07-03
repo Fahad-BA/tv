@@ -27,21 +27,28 @@ export TMDB_API_KEY="your_api_key"
 uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-### 3. Nginx Configuration
-Add this to `/etc/nginx/sites-available/tv`:
+### 3. Nginx Configuration (Subpath Setup)
+To serve the app under `yourdomain.com/tv`, add this to your Nginx config:
+
 ```nginx
 server {
     listen 80;
     server_name yourdomain.com;
 
-    location / {
-        root /var/www/tv/frontend;
+    # Frontend serving from /tv
+    location /tv/ {
+        alias /var/www/tv/frontend/;
         index index.html;
+        try_files $uri $uri/ /tv/index.html;
     }
 
-    location /api/ {
+    # API Proxying from /tv/api/
+    location /tv/api/ {
         proxy_pass http://127.0.0.1:8000/;
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
@@ -66,4 +73,4 @@ WantedBy=multi-user.target
 ```
 
 ## Import from TV Time
-Navigate to the /import page in the UI to upload your TV Time export (JSON/CSV).
+Navigate to `yourdomain.com/tv` and use the Import section to upload your TV Time data.

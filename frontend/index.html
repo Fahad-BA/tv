@@ -15,9 +15,9 @@
     <nav class="glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
         <h1 class="text-2xl font-bold text-indigo-400">TV Tracker</h1>
         <div class="flex gap-6">
-            <a href="#" class="hover:text-indigo-400 transition">Dashboard</a>
-            <a href="#" class="hover:text-indigo-400 transition">Watchlist</a>
-            <a href="#" class="hover:text-indigo-400 transition">Import</a>
+            <a href="index.html" class="hover:text-indigo-400 transition">Dashboard</a>
+            <a href="watchlist.html" class="hover:text-indigo-400 transition">Watchlist</a>
+            <a href="import.html" class="hover:text-indigo-400 transition">Import</a>
         </div>
     </nav>
 
@@ -25,22 +25,31 @@
         <section class="mb-12">
             <div class="flex justify-between items-end mb-6">
                 <h2 class="text-3xl font-bold">Your Dashboard</h2>
-                <button class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">Add New</button>
+                <button onclick="searchMedia()" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">Add New</button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- Example Card -->
-                <div class="glass rounded-xl overflow-hidden hover:scale-105 transition duration-300">
-                    <img src="https://via.placeholder.com/300x450" alt="Poster" class="w-full h-64 object-cover">
-                    <div class="p-4">
-                        <h3 class="font-bold text-lg truncate">Example Show</h3>
-                        <p class="text-slate-400 text-sm">S02 E05 • 75% Complete</p>
-                        <div class="mt-4 w-full bg-slate-700 h-1.5 rounded-full">
-                            <div class="bg-indigo-500 h-1.5 rounded-full" style="width: 75%"></div>
-                        </div>
-                    </div>
-                </div>
+            <div id="media-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Data will be populated here via relative API calls -->
             </div>
         </section>
     </main>
+
+    <script>
+        // Use relative path for API to support subpath deployment (e.g. /tv/api/)
+        const API_BASE = "api"; 
+
+        async function searchMedia() {
+            const query = prompt("Enter show or movie name:");
+            if (!query) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/search?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                console.log("Search results:", data);
+                // Update UI...
+            } catch (err) {
+                console.error("Failed to fetch:", err);
+            }
+        }
+    </script>
 </body>
 </html>

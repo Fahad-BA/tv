@@ -7,6 +7,7 @@ from . import models, schemas, auth, tmdb, database
 
 models.Base.metadata.create_all(bind=database.engine)
 
+# Note: Using root path here, Nginx handles the /tv/api/ -> / mapping
 app = FastAPI(title="TV Tracker API")
 
 app.add_middleware(
@@ -40,4 +41,4 @@ def add_to_watchlist(item: schemas.WatchlistItemCreate, db: Session = Depends(da
     return models.add_watchlist_item(db, item, current_user.id)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
