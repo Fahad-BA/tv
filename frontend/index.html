@@ -3,52 +3,266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TV Tracker - انما اييييييه</title>
+    <title>🎬 TV Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; }
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        
+        input, select { 
+            background: rgba(15, 23, 42, 0.8); 
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: #f8fafc;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+        input::placeholder { color: #64748b; }
+        
+        .modal-backdrop { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
+        .card-hover { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+        
+        #mobile-menu { transition: max-height 0.3s ease; max-height: 0; overflow: hidden; }
+        #mobile-menu.open { max-height: 400px; }
     </style>
 </head>
 <body class="min-h-screen">
-    <nav class="glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-indigo-400">TV Tracker</h1>
-        <div class="flex gap-6">
-            <a href="/" class="hover:text-indigo-400 transition">Dashboard</a>
-            <a href="/watchlist" class="hover:text-indigo-400 transition">Watchlist</a>
-            <a href="/import" class="hover:text-indigo-400 transition">Import</a>
+
+    <!-- Navbar -->
+    <nav class="glass sticky top-0 z-50 px-4 sm:px-6 py-3 sm:py-4">
+        <div class="flex justify-between items-center">
+            <h1 class="text-xl sm:text-2xl">🎬</h1>
+            
+            <!-- Desktop nav -->
+            <div class="hidden sm:flex gap-6 items-center">
+                <a href="/" class="hover:text-indigo-400 transition">Dashboard</a>
+                <a href="/watchlist" class="hover:text-indigo-400 transition">Watchlist</a>
+                <a href="/import" class="hover:text-indigo-400 transition">Import</a>
+                <div id="auth-buttons-desktop" class="flex gap-3 ml-4"></div>
+            </div>
+
+            <!-- Mobile burger -->
+            <button id="burger" class="sm:hidden text-2xl">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        
+        <!-- Mobile menu -->
+        <div id="mobile-menu" class="sm:hidden">
+            <div class="flex flex-col gap-3 pt-4 pb-2">
+                <a href="/" class="hover:text-indigo-400 transition">Dashboard</a>
+                <a href="/watchlist" class="hover:text-indigo-400 transition">Watchlist</a>
+                <a href="/import" class="hover:text-indigo-400 transition">Import</a>
+                <div id="auth-buttons-mobile" class="flex flex-col gap-2 pt-2"></div>
+            </div>
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto p-8">
-        <section class="mb-12">
-            <div class="flex justify-between items-end mb-6">
-                <h2 class="text-3xl font-bold">Your Dashboard</h2>
-                <button onclick="searchMedia()" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">Add New</button>
+    <!-- Auth Modals -->
+    <div id="auth-modal" class="hidden fixed inset-0 z-[100] modal-backdrop flex items-center justify-center px-4">
+        <div class="glass rounded-2xl p-6 w-full max-w-sm">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="modal-title" class="text-xl font-bold text-indigo-400">Login</h2>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
             </div>
-            <div id="media-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <form id="auth-form" class="flex flex-col gap-4">
+                <input id="auth-email" type="email" placeholder="Email" required class="px-4 py-3 rounded-lg w-full">
+                <input id="auth-password" type="password" placeholder="Password" required class="px-4 py-3 rounded-lg w-full">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-3 rounded-lg font-semibold transition">
+                    <span id="modal-submit-text">Login</span>
+                </button>
+                <p id="auth-error" class="text-red-400 text-sm hidden"></p>
+                <p id="auth-switch-text" class="text-center text-sm text-slate-400">
+                    Don't have an account? <a href="#" onclick="switchMode()" class="text-indigo-400">Register</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <section class="mb-8 sm:mb-12">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 mb-4 sm:mb-6">
+                <h2 class="text-2xl sm:text-3xl font-bold">Your Dashboard</h2>
+                <button onclick="searchMedia()" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition self-start sm:self-auto">
+                    <i class="fas fa-plus mr-1"></i> Add New
+                </button>
+            </div>
+            <div id="media-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
                 <!-- Data populated via API -->
+            </div>
+            <div id="empty-state" class="text-center py-12 text-slate-500">
+                <p class="text-lg">Your watchlist is empty.</p>
+                <p class="text-sm mt-1">Search and add shows to get started.</p>
             </div>
         </section>
     </main>
 
-    <script>
-        // API calls now use the /api prefix served directly by FastAPI
-        const API_BASE = "/api"; 
+    <!-- Search Modal -->
+    <div id="search-modal" class="hidden fixed inset-0 z-[100] modal-backdrop flex items-center justify-center px-4">
+        <div class="glass rounded-2xl p-6 w-full max-w-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-indigo-400">Search</h2>
+                <button onclick="closeSearchModal()" class="text-slate-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <div class="flex gap-2 mb-4">
+                <input id="search-input" type="text" placeholder="Search movies & shows..." class="px-4 py-2 rounded-lg flex-1">
+                <button onclick="doSearch()" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg transition">Go</button>
+            </div>
+            <div id="search-results" class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto"></div>
+        </div>
+    </div>
 
-        async function searchMedia() {
-            const query = prompt("Enter show or movie name:");
-            if (!query) return;
-            
-            try {
-                const response = await fetch(`${API_BASE}/search?query=${encodeURIComponent(query)}`);
-                const data = await response.json();
-                console.log("Search results:", data);
-            } catch (err) {
-                console.error("Failed to fetch:", err);
+    <script>
+        const API_BASE = "/api";
+        let authMode = 'login';
+        let token = localStorage.getItem('tv_token');
+        
+        // ---- Mobile menu ----
+        document.getElementById('burger').addEventListener('click', () => {
+            document.getElementById('mobile-menu').classList.toggle('open');
+        });
+
+        // ---- Auth ----
+        function updateAuthUI() {
+            const desktop = document.getElementById('auth-buttons-desktop');
+            const mobile = document.getElementById('auth-buttons-mobile');
+            if (token) {
+                desktop.innerHTML = `<button onclick="logout()" class="bg-red-600/80 hover:bg-red-600 px-4 py-2 rounded-lg text-sm transition">Logout</button>`;
+                mobile.innerHTML = `<button onclick="logout()" class="bg-red-600/80 hover:bg-red-600 px-4 py-2 rounded-lg text-sm transition text-center">Logout</button>`;
+            } else {
+                desktop.innerHTML = `<button onclick="openModal('login')" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm transition">Login</button><button onclick="openModal('register')" class="border border-indigo-500 hover:bg-indigo-600/20 px-4 py-2 rounded-lg text-sm transition">Register</button>`;
+                mobile.innerHTML = `<button onclick="openModal('login')" class="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm transition text-center">Login</button><button onclick="openModal('register')" class="border border-indigo-500 hover:bg-indigo-600/20 px-4 py-2 rounded-lg text-sm transition text-center">Register</button>`;
             }
         }
+
+        function openModal(mode) {
+            authMode = mode;
+            document.getElementById('modal-title').textContent = mode === 'login' ? 'Login' : 'Register';
+            document.getElementById('modal-submit-text').textContent = mode === 'login' ? 'Login' : 'Register';
+            document.getElementById('auth-switch-text').innerHTML = mode === 'login' 
+                ? `Don't have an account? <a href="#" onclick="switchMode()" class="text-indigo-400">Register</a>`
+                : `Already have an account? <a href="#" onclick="switchMode()" class="text-indigo-400">Login</a>`;
+            document.getElementById('auth-error').classList.add('hidden');
+            document.getElementById('auth-modal').classList.remove('hidden');
+            document.getElementById('mobile-menu').classList.remove('open');
+        }
+
+        function closeModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+            document.getElementById('auth-form').reset();
+        }
+
+        function switchMode() {
+            openModal(authMode === 'login' ? 'register' : 'login');
+        }
+
+        function logout() {
+            localStorage.removeItem('tv_token');
+            token = null;
+            updateAuthUI();
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const errEl = document.getElementById('auth-error');
+            errEl.classList.add('hidden');
+
+            try {
+                if (authMode === 'register') {
+                    await fetch(`${API_BASE}/register`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({email, password})
+                    });
+                }
+                const res = await fetch(`${API_BASE}/token`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                if (!res.ok) {
+                    const d = await res.json();
+                    throw new Error(d.detail || 'Failed');
+                }
+                const data = await res.json();
+                token = data.access_token;
+                localStorage.setItem('tv_token', token);
+                closeModal();
+                updateAuthUI();
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.classList.remove('hidden');
+            }
+        });
+
+        // ---- Search ----
+        function searchMedia() {
+            if (!token) { openModal('login'); return; }
+            document.getElementById('search-modal').classList.remove('hidden');
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').innerHTML = '';
+            document.getElementById('search-input').focus();
+        }
+
+        function closeSearchModal() {
+            document.getElementById('search-modal').classList.add('hidden');
+        }
+
+        async function doSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            if (!query) return;
+            const res = await fetch(`${API_BASE}/search?query=${encodeURIComponent(query)}`, {
+                headers: {'Authorization': `Bearer ${token}`}
+            });
+            const data = await res.json();
+            const container = document.getElementById('search-results');
+            container.innerHTML = '';
+            data.slice(0, 12).forEach(item => {
+                const poster = item.poster_path 
+                    ? `https://image.tmdb.org/t/p/w200${item.poster_path}` 
+                    : '';
+                const div = document.createElement('div');
+                div.className = 'card-hover cursor-pointer text-center';
+                div.innerHTML = `
+                    ${poster ? `<img src="${poster}" class="rounded-lg w-full mb-1">` : `<div class="bg-slate-800 rounded-lg w-full aspect-[2/3] flex items-center justify-center text-slate-600"><i class="fas fa-film text-2xl"></i></div>`}
+                    <p class="text-xs truncate">${item.title || item.name || 'Unknown'}</p>
+                `;
+                div.onclick = () => addToWatchlist(item);
+                container.appendChild(div);
+            });
+        }
+
+        async function addToWatchlist(item) {
+            await fetch(`${API_BASE}/watchlist`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    tmdb_id: item.id,
+                    title: item.title || item.name || 'Unknown',
+                    media_type: item.media_type || 'tv',
+                    poster_path: item.poster_path || null
+                })
+            });
+            closeSearchModal();
+        }
+
+        // Enter key for search
+        document.getElementById('search-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') doSearch();
+        });
+
+        // Init
+        updateAuthUI();
     </script>
 </body>
 </html>
