@@ -9,12 +9,18 @@ import json
 import csv
 import io
 import zipfile
+import uuid
+import requests
 
 from . import models, schemas, auth, tmdb, database
 
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="TV Tracker API")
+
+# Ensure upload directory exists
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,11 +49,34 @@ def get_me(current_user: models.User = Depends(auth.get_current_user)):
 
 @app.patch("/api/me", response_model=schemas.User)
 def update_me(data: schemas.UserUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    for field, value in data.dict(exclude_unset=True).items():
+    update_data = data.dict(exclude_unset=True)
+    for field, value in update_data.items():
         setattr(current_user, field, value)
     db.commit()
     db.refresh(current_user)
     return current_user
+
+@app.post("/api/me/avatar")
+async def upload_avatar(file: UploadFile = File(...), db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    ext = os.path.splitext(file.filename)[1]
+    unique_filename = f"avatar_{current_user.id}_{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(UPLOAD_DIR, unique_filename)
+    
+    with open(file_path, "wb") as buffer:
+        buffer.write(await file.read())
+    
+    avatar_url = f"/api/static/uploads/{unique_filename}"
+    current_user.avatar_url = avatar_url
+    db.commit()
+    return {"avatar_url": avatar_url}
+
+@app.get("/api/me/followed-shows-backdrops")
+def get_followed_backdrops(show_id: int, current_user: models.User = Depends(auth.get_current_user)):
+    TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+    url = f"https://api.themoviedb.org/3/tv/{show_id}/images?api_key={TMDB_API_KEY}"
+    res = requests.get(url).json()
+    backdrops = res.get('backdrops', [])[:4]
+    return [{"url": f"https://image.tmdb.org/t/p/original{b['file_path']}"} for b in backdrops]
 
 @app.get("/api/stats")
 def get_stats(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
@@ -61,7 +90,6 @@ def get_stats(db: Session = Depends(database.get_db), current_user: models.User 
 # --- Media Tracking ---
 @app.get("/api/trending")
 def get_trending(current_user: models.User = Depends(auth.get_current_user)):
-    import requests
     TMDB_API_KEY = os.getenv("TMDB_API_KEY")
     url = f"https://api.themoviedb.org/3/trending/tv/week?api_key={TMDB_API_KEY}"
     return requests.get(url).json().get("results", [])
@@ -149,27 +177,47 @@ async def import_tv_time(file: UploadFile = File(...), db: Session = Depends(dat
     def process_import(data_stream, fname):
         nonlocal items_added
         if fname.endswith('.csv'):
-            reader = csv.DictReader(io.StringIO(data_stream.decode('utf-8')))
+            decoded = data_stream.decode('utf-8', errors='ignore')
+            reader = csv.DictReader(io.StringIO(decoded))
             for row in reader:
-                show_name = row.get('tv_show_name') or row.get('show_name')
+                show_name = row.get('tv_show_name') or row.get('show_name') or row.get('Show Name')
                 if show_name:
+                    # Map to watchlist
                     models.add_watchlist_item(db, schemas.WatchlistItemCreate(tmdb_id=0, title=show_name, media_type='tv'), current_user.id)
-                    s_num = int(row.get('season_number', 0))
-                    e_num = int(row.get('episode_number', 0))
-                    if s_num and e_num:
-                        db.add(models.EpisodeWatch(user_id=current_user.id, show_id=0, season_number=s_num, episode_number=e_num))
-                    items_added += 1
+                    
+                    # Map episode watch
+                    try:
+                        s_num = int(row.get('season_number', row.get('Season', 0)))
+                        e_num = int(row.get('episode_number', row.get('Episode', 0)))
+                        if s_num and e_num:
+                            existing_watch = db.query(models.EpisodeWatch).filter(
+                                models.EpisodeWatch.user_id == current_user.id,
+                                models.EpisodeWatch.show_id == 0, # Imported shows without TMDB ID yet
+                                models.EpisodeWatch.season_number == s_num,
+                                models.EpisodeWatch.episode_number == e_num
+                            ).first()
+                            if not existing_watch:
+                                db.add(models.EpisodeWatch(user_id=current_user.id, show_id=0, season_number=s_num, episode_number=e_num))
+                                items_added += 1
+                    except:
+                        pass # Ignore row if episode data malformed
 
     if filename.endswith('.zip'):
         with zipfile.ZipFile(io.BytesIO(content)) as z:
             for n in z.namelist():
-                if n.endswith('.csv'): process_import(z.read(n), n)
-    else: process_import(content, filename)
+                if n.endswith('.csv'): 
+                    process_import(z.read(n), n)
+    else: 
+        process_import(content, filename)
+    
     db.commit()
-    return {"message": f"Imported {items_added} items"}
+    return {"message": f"Successfully imported data across all records.", "count": items_added}
 
 # --- Static ---
-frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+app.mount("/api/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+frontend_path = os.path.join(backend_dir, "..", "frontend")
 @app.get("/")
 @app.get("/watchlist")
 @app.get("/import")
