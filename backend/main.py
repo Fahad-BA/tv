@@ -41,6 +41,14 @@ def login(form_data: schemas.UserLogin, db: Session = Depends(database.get_db)):
 def get_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
 
+@app.patch("/api/me", response_model=schemas.User)
+def update_me(data: schemas.UserUpdate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    for field, value in data.dict(exclude_unset=True).items():
+        setattr(current_user, field, value)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
 @app.get("/api/stats")
 def get_stats(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     watches = db.query(models.EpisodeWatch).filter(models.EpisodeWatch.user_id == current_user.id).count()
@@ -51,6 +59,13 @@ def get_stats(db: Session = Depends(database.get_db), current_user: models.User 
     }
 
 # --- Media Tracking ---
+@app.get("/api/trending")
+def get_trending(current_user: models.User = Depends(auth.get_current_user)):
+    import requests
+    TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+    url = f"https://api.themoviedb.org/3/trending/tv/week?api_key={TMDB_API_KEY}"
+    return requests.get(url).json().get("results", [])
+
 @app.get("/api/search")
 def search_media(query: str, current_user: models.User = Depends(auth.get_current_user)):
     return tmdb.search(query)
@@ -136,7 +151,6 @@ async def import_tv_time(file: UploadFile = File(...), db: Session = Depends(dat
         if fname.endswith('.csv'):
             reader = csv.DictReader(io.StringIO(data_stream.decode('utf-8')))
             for row in reader:
-                # Basic TV Time CSV mapping
                 show_name = row.get('tv_show_name') or row.get('show_name')
                 if show_name:
                     models.add_watchlist_item(db, schemas.WatchlistItemCreate(tmdb_id=0, title=show_name, media_type='tv'), current_user.id)

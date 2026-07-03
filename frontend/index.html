@@ -3,125 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TV Tracker</title>
+    <title>🎬 TV Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-        :root { --gold: #FFD300; --dark: #000000; --gray: #1A1A1A; }
-        body { background: var(--dark); color: #F5F5F5; font-family: 'Poppins', sans-serif; margin-bottom: 70px; }
+        :root { --gold: #FFD300; --dark: #000000; --gray: #111111; }
+        body { background: var(--dark); color: #F5F5F5; font-family: 'Poppins', sans-serif; margin-bottom: 80px; }
         .gold-text { color: var(--gold); }
         .gold-bg { background: var(--gold); }
-        .card { background: #111; border-radius: 12px; overflow: hidden; position: relative; }
+        .card { background: #161616; border-radius: 12px; overflow: hidden; position: relative; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-4px); }
         .progress-bar { height: 4px; background: #333; border-radius: 2px; }
         .progress-fill { height: 100%; background: var(--gold); transition: width 0.3s; }
-        .modal-bg { background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); }
-        .episode-row { border-bottom: 1px solid #222; padding: 12px 0; }
-        .watched-btn { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #333; display: flex; items-center; justify-content: center; transition: 0.2s; }
+        .modal-bg { background: rgba(0,0,0,0.95); backdrop-filter: blur(12px); }
+        .watched-btn { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #333; display: flex; items-center; justify-content: center; }
         .watched-btn.active { background: var(--gold); border-color: var(--gold); color: black; }
+        .shelf-container { display: flex; overflow-x: auto; gap: 16px; scroll-snap-type: x mandatory; padding-bottom: 12px; scrollbar-width: none; }
+        .shelf-container::-webkit-scrollbar { display: none; }
+        .shelf-item { flex: 0 0 160px; scroll-snap-align: start; }
+        .profile-banner { height: 320px; background-size: cover; background-position: center; position: relative; }
+        .profile-banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent, var(--dark)); }
     </style>
 </head>
 <body>
 
-    <nav class="hidden md:flex sticky top-0 z-50 bg-black/90 px-8 py-4 justify-between border-b border-white/10">
-        <h1 class="text-2xl font-bold gold-text">TV TIME</h1>
-        <div class="flex gap-8">
+    <!-- Header -->
+    <header class="sticky top-0 z-50 bg-black/90 px-6 py-4 flex justify-between items-center border-b border-white/10">
+        <a href="/" onclick="route(event, '/')" class="text-3xl font-bold">🎬</a>
+        <nav class="hidden md:flex gap-8 font-semibold">
             <a href="/" onclick="route(event, '/')" class="hover:text-yellow-500">Watchlist</a>
-            <a href="/import" onclick="route(event, '/import')" class="hover:text-yellow-500">Import</a>
+            <a href="/import" onclick="route(event, '/import')" class="hover:text-yellow-500 flex items-center gap-2"><i class="fas fa-file-import"></i> Import</a>
             <a href="/profile" onclick="route(event, '/profile')" class="hover:text-yellow-500">Profile</a>
+        </nav>
+        <div class="flex gap-4">
+            <button onclick="openSearch()" class="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center"><i class="fas fa-search"></i></button>
+            <button onclick="logout()" class="md:hidden"><i class="fas fa-sign-out-alt"></i></button>
         </div>
-    </nav>
+    </header>
 
     <main id="app" class="max-w-6xl mx-auto p-4 md:p-8">
-        <!-- Dashboard -->
+        
+        <!-- Dashboard / Homepage -->
         <div id="view-home">
-            <h2 class="text-2xl font-bold mb-6">Watchlist</h2>
-            <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"></div>
+            <section class="mb-10">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">🔥 Trending This Week</h2>
+                <div id="trending-shelf" class="shelf-container">
+                    <!-- Trending items -->
+                </div>
+            </section>
+
+            <section>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">My Watchlist</h2>
+                    <span id="watchlist-count" class="text-gray-500 text-sm">0 items</span>
+                </div>
+                <div id="watchlist-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"></div>
+            </section>
         </div>
 
-        <!-- Detail Modal -->
-        <div id="modal-detail" class="hidden fixed inset-0 z-[100] modal-bg overflow-y-auto">
-            <div class="max-w-4xl mx-auto p-4 md:p-12">
-                <button onclick="closeModal()" class="mb-6 text-gray-400 hover:text-white"><i class="fas fa-arrow-left mr-2"></i> Back</button>
-                <div id="detail-header" class="flex flex-col md:flex-row gap-8 mb-12"></div>
-                <div id="season-list" class="space-y-4"></div>
+        <!-- Profile Page -->
+        <div id="view-profile" class="hidden -mt-8 -mx-4 md:-mx-8">
+            <div id="profile-banner" class="profile-banner flex items-end px-8 pb-8">
+                <div class="relative z-10 flex flex-col md:flex-row items-center md:items-end gap-6 w-full max-w-6xl mx-auto">
+                    <div id="profile-avatar" class="w-32 h-32 rounded-full border-4 border-black bg-gray-900 overflow-hidden shrink-0 shadow-2xl"></div>
+                    <div class="flex-1 text-center md:text-left">
+                        <h2 id="profile-name" class="text-4xl font-bold">Username</h2>
+                        <p id="profile-bio" class="text-gray-400 mt-1">No bio yet.</p>
+                    </div>
+                    <button onclick="openEditProfile()" class="bg-white/10 hover:bg-white/20 px-6 py-2 rounded-full text-sm font-bold transition">Edit Profile</button>
+                </div>
+            </div>
+            <div class="p-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-6xl mx-auto">
+                <div class="bg-gray-900/50 p-6 rounded-2xl text-center border border-white/5">
+                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1">Time Spent</p>
+                    <div id="stat-time" class="text-xl font-bold">0m 0d</div>
+                </div>
+                <div class="bg-gray-900/50 p-6 rounded-2xl text-center border border-white/5">
+                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1">Episodes</p>
+                    <div id="stat-episodes" class="text-xl font-bold">0</div>
+                </div>
+                <!-- ... other stats -->
+            </div>
+        </div>
+
+        <!-- Import Page -->
+        <div id="view-import" class="hidden text-center py-20">
+            <div class="max-w-md mx-auto p-12 bg-gray-900/50 rounded-[40px] border border-white/5">
+                <i class="fas fa-file-zipper text-5xl mb-6 gold-text"></i>
+                <h2 class="text-3xl font-bold mb-3">Import Data</h2>
+                <p class="text-gray-500 mb-8">Upload your TV Time .zip file or .csv to sync your library history instantly.</p>
+                <input type="file" id="import-file" class="hidden" accept=".zip,.csv,.json" onchange="handleImport(this)">
+                <button onclick="document.getElementById('import-file').click()" class="gold-bg text-black font-bold px-10 py-4 rounded-full w-full hover:scale-105 transition">Choose File</button>
+                <p id="import-status" class="mt-4 text-sm text-gray-400"></p>
             </div>
         </div>
     </main>
 
     <!-- Mobile Nav -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-black border-t border-white/10 px-8 py-4 flex justify-between">
-        <a href="/" onclick="route(event, '/')"><i class="fas fa-list-ul"></i></a>
-        <button onclick="openSearch()"><i class="fas fa-plus gold-text"></i></button>
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-lg border-t border-white/10 px-10 py-4 flex justify-between z-[60]">
+        <a href="/" onclick="route(event, '/')"><i class="fas fa-home"></i></a>
+        <a href="/import" onclick="route(event, '/import')" class="gold-text"><i class="fas fa-file-import"></i></a>
         <a href="/profile" onclick="route(event, '/profile')"><i class="far fa-user"></i></a>
     </nav>
 
+    <!-- Profile Edit Modal -->
+    <div id="modal-edit-profile" class="hidden fixed inset-0 z-[100] modal-bg flex items-center justify-center p-4">
+        <div class="bg-[#111] border border-white/10 rounded-3xl p-8 w-full max-w-sm">
+            <h3 class="text-2xl font-bold mb-6">Edit Profile</h3>
+            <div class="space-y-4">
+                <input id="edit-username" type="text" placeholder="Username" class="w-full bg-black rounded-xl px-4 py-4 text-sm border-none focus:ring-1 focus:ring-yellow-500">
+                <input id="edit-avatar" type="text" placeholder="Avatar Image URL" class="w-full bg-black rounded-xl px-4 py-4 text-sm border-none focus:ring-1 focus:ring-yellow-500">
+                <input id="edit-backdrop" type="text" placeholder="Backdrop URL or TMDB ID" class="w-full bg-black rounded-xl px-4 py-4 text-sm border-none focus:ring-1 focus:ring-yellow-500">
+                <textarea id="edit-bio" placeholder="Bio" class="w-full bg-black rounded-xl px-4 py-4 text-sm border-none focus:ring-1 focus:ring-yellow-500"></textarea>
+                <button onclick="saveProfile()" class="w-full gold-bg text-black font-bold py-4 rounded-xl">Save Changes</button>
+                <button onclick="closeModals()" class="w-full text-gray-500 text-sm">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const api = "/api";
+        const API = "/api";
         let token = localStorage.getItem('tv_token');
 
-        async function req(path, method='GET', body=null) {
+        async function req(p, m='GET', b=null) {
             const h = { 'Authorization': `Bearer ${token}` };
-            if (body) h['Content-Type'] = 'application/json';
-            const r = await fetch(api + path, { method, headers: h, body: body ? JSON.stringify(body) : null });
+            if (b) h['Content-Type'] = 'application/json';
+            const r = await fetch(API + p, { method: m, headers: h, body: b ? JSON.stringify(b) : null });
             return r.json();
         }
 
-        async function loadDashboard() {
+        async function loadTrending() {
+            const items = await req('/trending');
+            document.getElementById('trending-shelf').innerHTML = items.map(i => `
+                <div class="shelf-item card">
+                    <img src="https://image.tmdb.org/t/p/w300${i.poster_path}" class="w-full aspect-[2/3] object-cover">
+                    <button onclick="quickAdd(${JSON.stringify(i).replace(/"/g, '&quot;')})" class="absolute top-2 right-2 w-8 h-8 rounded-full gold-bg text-black flex items-center justify-center shadow-lg"><i class="fas fa-plus text-xs"></i></button>
+                    <div class="p-2"><p class="text-[10px] font-bold truncate">${i.name}</p></div>
+                </div>
+            `).join('');
+        }
+
+        async function quickAdd(i) {
+            await req('/watchlist', 'POST', { tmdb_id: i.id, title: i.name, media_type: 'tv', poster_path: i.poster_path });
+            loadWatchlist();
+        }
+
+        async function loadWatchlist() {
             const data = await req('/watchlist');
-            const grid = document.getElementById('grid');
-            grid.innerHTML = data.map(item => `
-                <div class="card cursor-pointer" onclick="openShow(${item.tmdb_id})">
-                    <img src="https://image.tmdb.org/t/p/w300${item.poster_path}" class="w-full aspect-[2/3] object-cover">
+            document.getElementById('watchlist-count').textContent = `${data.length} items`;
+            document.getElementById('watchlist-grid').innerHTML = data.map(i => `
+                <div class="card cursor-pointer" onclick="openShow(${i.tmdb_id})">
+                    <img src="https://image.tmdb.org/t/p/w400${i.poster_path}" class="w-full aspect-[2/3] object-cover">
                     <div class="p-3">
-                        <p class="font-bold text-xs truncate">${item.title}</p>
-                        <div class="progress-bar mt-2"><div class="progress-fill" style="width: 45%"></div></div>
+                        <p class="font-bold text-[11px] truncate">${i.title}</p>
+                        <div class="progress-bar mt-2"><div class="progress-fill" style="width: 30%"></div></div>
                     </div>
                 </div>
             `).join('');
         }
 
-        async function openShow(id) {
-            const seasons = await req(`/shows/${id}/seasons`);
-            const modal = document.getElementById('modal-detail');
-            modal.classList.remove('hidden');
+        async function loadProfile() {
+            const user = await req('/me');
+            const stats = await req('/stats');
             
-            document.getElementById('season-list').innerHTML = seasons.map(s => `
-                <div class="gray-bg p-6 rounded-2xl">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold">Season ${s.season_number}</h3>
-                        <button onclick="markSeason(${id}, ${s.season_number}, ${s.episodes.length})" class="text-xs gold-text">Mark Season Watched</button>
-                    </div>
-                    <div class="space-y-2">
-                        ${s.episodes.map(e => `
-                            <div class="episode-row flex justify-between items-center">
-                                <div><p class="text-sm font-medium">E${e.episode_number} • ${e.name}</p></div>
-                                <button onclick="toggleEp(this, ${id}, ${s.season_number}, ${e.episode_number})" class="watched-btn ${e.watched ? 'active' : ''}">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            `).join('');
+            document.getElementById('profile-name').textContent = user.username || user.email.split('@')[0];
+            document.getElementById('profile-bio').textContent = user.bio || "TV Enthusiast";
+            document.getElementById('profile-avatar').innerHTML = `<img src="${user.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=minimal'}" class="w-full h-full object-cover">`;
+            document.getElementById('profile-banner').style.backgroundImage = `url(${user.backdrop_url || 'https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2000'})`;
+            
+            const t = stats.time_spent;
+            document.getElementById('stat-time').textContent = `${t.months}m ${t.days}d`;
+            document.getElementById('stat-episodes').textContent = stats.total_episodes;
         }
 
-        async function toggleEp(btn, showId, s, e) {
-            const res = await req(`/episodes/${showId}/${s}/${e}/toggle`, 'POST');
-            btn.classList.toggle('active', res.watched);
+        async function saveProfile() {
+            const data = {
+                username: document.getElementById('edit-username').value,
+                avatar_url: document.getElementById('edit-avatar').value,
+                backdrop_url: document.getElementById('edit-backdrop').value,
+                bio: document.getElementById('edit-bio').value
+            };
+            await req('/me', 'PATCH', data);
+            closeModals();
+            loadProfile();
         }
 
-        async function markSeason(showId, sNum, count) {
-            const eps = Array.from({length: count}, (_, i) => i + 1);
-            await req(`/shows/${showId}/seasons/toggle`, 'POST', { season_number: sNum, episodes: eps });
-            openShow(showId);
+        function route(e, path) {
+            if (e) e.preventDefault();
+            window.history.pushState({}, '', path);
+            document.querySelectorAll('#app > div').forEach(d => d.classList.add('hidden'));
+            if (path === '/profile') { document.getElementById('view-profile').classList.remove('hidden'); loadProfile(); }
+            else if (path === '/import') { document.getElementById('view-import').classList.remove('hidden'); }
+            else { document.getElementById('view-home').classList.remove('hidden'); loadWatchlist(); loadTrending(); }
         }
 
-        function closeModal() { document.getElementById('modal-detail').classList.add('hidden'); }
-        function route(e, path) { e.preventDefault(); window.history.pushState({}, '', path); loadDashboard(); }
+        function openEditProfile() { document.getElementById('modal-edit-profile').classList.remove('hidden'); }
+        function closeModals() { document.querySelectorAll('.modal-bg, #modal-edit-profile').forEach(m => m.classList.add('hidden')); }
+        function logout() { localStorage.clear(); location.reload(); }
 
-        if (!token) { /* Simplified Auth Redirect */ }
-        loadDashboard();
+        window.onpopstate = () => route(null, window.location.pathname);
+        route(null, window.location.pathname);
     </script>
 </body>
 </html>
