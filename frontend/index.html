@@ -9,201 +9,434 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
         :root { --gold: #FFD300; --dark: #000000; --gray: #111111; }
+        * { -webkit-tap-highlight-color: transparent; }
         body { background: var(--dark); color: #F5F5F5; font-family: 'Poppins', sans-serif; margin-bottom: 80px; }
         .gold-text { color: var(--gold); }
         .gold-bg { background: var(--gold); }
         .card { background: #161616; border-radius: 12px; overflow: hidden; position: relative; transition: transform 0.2s; }
-        .card:hover { transform: translateY(-4px); }
+        .card:active { transform: scale(0.97); }
         .progress-bar { height: 4px; background: #333; border-radius: 2px; }
         .progress-fill { height: 100%; background: var(--gold); transition: width 0.3s; }
         .modal-bg { background: rgba(0,0,0,0.95); backdrop-filter: blur(12px); }
-        .watched-btn { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #333; display: flex; items-center; justify-content: center; }
+        .watched-btn { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #333; display: flex; align-items: center; justify-content: center; transition: 0.2s; cursor: pointer; }
         .watched-btn.active { background: var(--gold); border-color: var(--gold); color: black; }
+        .watched-btn:active { transform: scale(0.85); }
         .shelf-container { display: flex; overflow-x: auto; gap: 16px; scroll-snap-type: x mandatory; padding-bottom: 12px; scrollbar-width: none; }
         .shelf-container::-webkit-scrollbar { display: none; }
-        .shelf-item { flex: 0 0 160px; scroll-snap-align: start; }
-        .profile-banner { height: 320px; background-size: cover; background-position: center; position: relative; }
+        .shelf-item { flex: 0 0 140px; scroll-snap-align: start; }
+        .profile-banner { height: 280px; background-size: cover; background-position: center; position: relative; }
         .profile-banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent, var(--dark)); }
+        input, select, textarea { background: #111; border: 1px solid #333; color: #fff; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); }
+        input::placeholder, textarea::placeholder { color: #555; }
+        .nav-btn { cursor: pointer; transition: 0.15s; }
+        .nav-btn:active { transform: scale(0.9); }
+        .toast { animation: fadeIn 0.3s, fadeOut 0.3s 2.7s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeOut { to { opacity: 0; } }
+        .episode-row { border-bottom: 1px solid #222; padding: 12px 0; }
     </style>
 </head>
 <body>
 
     <!-- Header -->
-    <header class="sticky top-0 z-50 bg-black/90 px-6 py-4 flex justify-between items-center border-b border-white/10">
-        <a href="/" onclick="route(event, '/')" class="text-3xl font-bold">🎬</a>
-        <nav class="hidden md:flex gap-8 font-semibold">
-            <a href="/" onclick="route(event, '/')" class="hover:text-yellow-500">Watchlist</a>
-            <a href="/import" onclick="route(event, '/import')" class="hover:text-yellow-500 flex items-center gap-2"><i class="fas fa-file-import"></i> Import</a>
-            <a href="/profile" onclick="route(event, '/profile')" class="hover:text-yellow-500">Profile</a>
-        </nav>
-        <div class="flex gap-4">
+    <header class="sticky top-0 z-50 bg-black/90 px-4 md:px-6 py-3 md:py-4 flex justify-between items-center border-b border-white/10">
+        <a href="/" onclick="route(event,'/')" class="text-2xl md:text-3xl">🎬</a>
+        <nav class="hidden md:flex gap-8 font-semibold items-center">
+            <a href="/" onclick="route(event,'/')" class="hover:text-yellow-500">Watchlist</a>
+            <a href="/import" onclick="route(event,'/import')" class="hover:text-yellow-500 flex items-center gap-2"><i class="fas fa-file-import"></i> Import</a>
+            <a href="/profile" onclick="route(event,'/profile')" class="hover:text-yellow-500">Profile</a>
             <button onclick="openSearch()" class="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center"><i class="fas fa-search"></i></button>
-            <button onclick="logout()" class="md:hidden"><i class="fas fa-sign-out-alt"></i></button>
+            <div id="auth-desktop"></div>
+        </nav>
+        <div class="flex md:hidden gap-3 items-center">
+            <button onclick="openSearch()" class="w-9 h-9 rounded-full bg-gray-900 flex items-center justify-center"><i class="fas fa-search text-sm"></i></button>
+            <div id="auth-mobile"></div>
         </div>
     </header>
 
     <main id="app" class="max-w-6xl mx-auto p-4 md:p-8">
-        
-        <!-- Dashboard / Homepage -->
-        <div id="view-home">
-            <section class="mb-10">
-                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">🔥 Trending This Week</h2>
-                <div id="trending-shelf" class="shelf-container">
-                    <!-- Trending items -->
-                </div>
-            </section>
 
+        <!-- ========== AUTH VIEW ========== -->
+        <div id="view-auth" class="hidden flex flex-col items-center justify-center min-h-[60vh] gap-6">
+            <div class="text-center">
+                <i class="fas fa-tv text-5xl gold-text mb-4"></i>
+                <h2 class="text-2xl font-bold">Welcome to TV Time</h2>
+                <p class="text-gray-500 mt-2">Track your shows & movies</p>
+            </div>
+            <div class="w-full max-w-sm flex flex-col gap-3">
+                <input id="auth-email" type="email" placeholder="Email" class="px-4 py-3 rounded-lg w-full">
+                <input id="auth-password" type="password" placeholder="Password" class="px-4 py-3 rounded-lg w-full">
+                <p id="auth-error" class="text-red-400 text-sm hidden"></p>
+                <button onclick="doAuth('login')" class="gold-bg text-black font-bold py-3 rounded-lg">Login</button>
+                <button onclick="doAuth('register')" class="border border-yellow-500 text-yellow-500 font-bold py-3 rounded-lg">Create Account</button>
+            </div>
+        </div>
+
+        <!-- ========== HOME ========== -->
+        <div id="view-home" class="hidden">
+            <section id="trending-section" class="mb-8 md:mb-10">
+                <h2 class="text-lg md:text-xl font-bold mb-4 flex items-center gap-2">🔥 Trending</h2>
+                <div id="trending-shelf" class="shelf-container"></div>
+            </section>
             <section>
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">My Watchlist</h2>
+                <div class="flex justify-between items-center mb-4 md:mb-6">
+                    <h2 class="text-xl md:text-2xl font-bold">My Watchlist</h2>
                     <span id="watchlist-count" class="text-gray-500 text-sm">0 items</span>
                 </div>
-                <div id="watchlist-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4"></div>
+                <div id="watchlist-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4"></div>
+                <div id="empty-state" class="hidden text-center py-16 text-gray-600">
+                    <i class="fas fa-film text-4xl mb-3"></i>
+                    <p>Your watchlist is empty</p>
+                    <p class="text-sm mt-1">Tap search to add shows</p>
+                </div>
             </section>
         </div>
 
-        <!-- Profile Page -->
-        <div id="view-profile" class="hidden -mt-8 -mx-4 md:-mx-8">
-            <div id="profile-banner" class="profile-banner flex items-end px-8 pb-8">
-                <div class="relative z-10 flex flex-col md:flex-row items-center md:items-end gap-6 w-full max-w-6xl mx-auto">
-                    <div id="profile-avatar" class="w-32 h-32 rounded-full border-4 border-black bg-gray-900 overflow-hidden shrink-0 shadow-2xl"></div>
-                    <div class="flex-1 text-center md:text-left">
-                        <h2 id="profile-name" class="text-4xl font-bold">Username</h2>
-                        <p id="profile-bio" class="text-gray-400 mt-1">No bio yet.</p>
-                    </div>
-                    <button onclick="openEditProfile()" class="bg-white/10 hover:bg-white/20 px-6 py-2 rounded-full text-sm font-bold transition">Edit Profile</button>
-                </div>
-            </div>
-            <div class="p-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-6xl mx-auto">
-                <div class="bg-gray-900/50 p-6 rounded-2xl text-center border border-white/5">
-                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1">Time Spent</p>
-                    <div id="stat-time" class="text-xl font-bold">0m 0d</div>
-                </div>
-                <div class="bg-gray-900/50 p-6 rounded-2xl text-center border border-white/5">
-                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1">Episodes</p>
-                    <div id="stat-episodes" class="text-xl font-bold">0</div>
-                </div>
-                <!-- ... other stats -->
+        <!-- ========== DETAIL MODAL ========== -->
+        <div id="modal-detail" class="hidden fixed inset-0 z-[100] modal-bg overflow-y-auto">
+            <div class="max-w-4xl mx-auto p-4 md:p-12">
+                <button onclick="closeDetail()" class="mb-6 text-gray-400 hover:text-white"><i class="fas fa-arrow-left mr-2"></i> Back</button>
+                <div id="detail-header" class="flex flex-col md:flex-row gap-8 mb-12"></div>
+                <div id="season-list" class="space-y-4"></div>
             </div>
         </div>
 
-        <!-- Import Page -->
-        <div id="view-import" class="hidden text-center py-20">
-            <div class="max-w-md mx-auto p-12 bg-gray-900/50 rounded-[40px] border border-white/5">
+        <!-- ========== SEARCH MODAL ========== -->
+        <div id="modal-search" class="hidden fixed inset-0 z-[100] modal-bg overflow-y-auto">
+            <div class="max-w-2xl mx-auto p-4 md:p-12">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold gold-text">Search</h2>
+                    <button onclick="closeSearch()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="flex gap-2 mb-6">
+                    <input id="search-input" type="text" placeholder="Search shows & movies..." class="px-4 py-3 rounded-lg flex-1" onkeypress="if(event.key==='Enter')doSearch()">
+                    <button onclick="doSearch()" class="gold-bg text-black px-5 rounded-lg font-semibold">Go</button>
+                </div>
+                <div id="search-results" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+            </div>
+        </div>
+
+        <!-- ========== IMPORT ========== -->
+        <div id="view-import" class="hidden text-center py-12 md:py-20">
+            <div class="max-w-md mx-auto p-8 md:p-12 bg-gray-900/50 rounded-3xl md:rounded-[40px] border border-white/5">
                 <i class="fas fa-file-zipper text-5xl mb-6 gold-text"></i>
-                <h2 class="text-3xl font-bold mb-3">Import Data</h2>
-                <p class="text-gray-500 mb-8">Upload your TV Time .zip file or .csv to sync your library history instantly.</p>
-                <input type="file" id="import-file" class="hidden" accept=".zip,.csv,.json" onchange="handleImport(this)">
+                <h2 class="text-2xl md:text-3xl font-bold mb-3">Import Data</h2>
+                <p class="text-gray-500 mb-8 text-sm">Upload your TV Time .zip or .csv to sync your library.</p>
+                <input type="file" id="import-file" class="hidden" accept=".zip,.csv" onchange="handleImport(this)">
                 <button onclick="document.getElementById('import-file').click()" class="gold-bg text-black font-bold px-10 py-4 rounded-full w-full hover:scale-105 transition">Choose File</button>
                 <p id="import-status" class="mt-4 text-sm text-gray-400"></p>
             </div>
         </div>
-    </main>
 
-    <!-- Mobile Nav -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-lg border-t border-white/10 px-10 py-4 flex justify-between z-[60]">
-        <a href="/" onclick="route(event, '/')"><i class="fas fa-home"></i></a>
-        <a href="/import" onclick="route(event, '/import')" class="gold-text"><i class="fas fa-file-import"></i></a>
-        <a href="/profile" onclick="route(event, '/profile')"><i class="far fa-user"></i></a>
-    </nav>
-
-    <!-- Profile Edit Modal -->
-    <div id="modal-edit-profile" class="hidden fixed inset-0 z-[100] modal-bg flex items-center justify-center p-4">
-        <div class="bg-[#111] border border-white/10 rounded-3xl p-8 w-full max-w-sm">
-            <h3 class="text-2xl font-bold mb-6">Edit Profile</h3>
-            <div class="space-y-4">
-                <input id="edit-username" type="text" placeholder="Username" class="w-full bg-black rounded-xl px-4 py-4 text-sm border-none focus:ring-1 focus:ring-yellow-500">
-                <input id="edit-avatar" type="text" placeholder="Avatar Image URL" class="w-full bg-black rounded-xl px-4 py-4 text-sm border-none focus:ring-1 focus:ring-yellow-500">
-                <input id="edit-backdrop" type="text" placeholder="Backdrop URL or TMDB ID" class="w-full bg-black rounded-xl px-4 py-4 text-sm border-none focus:ring-1 focus:ring-yellow-500">
-                <textarea id="edit-bio" placeholder="Bio" class="w-full bg-black rounded-xl px-4 py-4 text-sm border-none focus:ring-1 focus:ring-yellow-500"></textarea>
-                <button onclick="saveProfile()" class="w-full gold-bg text-black font-bold py-4 rounded-xl">Save Changes</button>
-                <button onclick="closeModals()" class="w-full text-gray-500 text-sm">Cancel</button>
+        <!-- ========== PROFILE ========== -->
+        <div id="view-profile" class="hidden -mt-4 md:-mt-8 -mx-4 md:-mx-8">
+            <div id="profile-banner" class="profile-banner flex items-end px-4 md:px-8 pb-6 md:pb-8">
+                <div class="relative z-10 flex flex-col md:flex-row items-center md:items-end gap-4 md:gap-6 w-full max-w-6xl mx-auto">
+                    <div id="profile-avatar" class="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-black bg-gray-900 overflow-hidden shrink-0 shadow-2xl"></div>
+                    <div class="flex-1 text-center md:text-left">
+                        <h2 id="profile-name" class="text-xl md:text-4xl font-bold">Username</h2>
+                        <p id="profile-bio" class="text-gray-400 mt-1 text-sm md:text-base">No bio yet.</p>
+                    </div>
+                    <button onclick="openEditProfile()" class="bg-white/10 hover:bg-white/20 px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition">Edit</button>
+                </div>
+            </div>
+            <div class="p-4 md:p-8 grid grid-cols-3 gap-3 md:gap-4 max-w-6xl mx-auto">
+                <div class="bg-gray-900/50 p-4 md:p-6 rounded-2xl text-center border border-white/5">
+                    <p class="text-gray-500 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-1">Time Spent</p>
+                    <p id="stat-time" class="text-base md:text-xl font-bold">0m 0d</p>
+                </div>
+                <div class="bg-gray-900/50 p-4 md:p-6 rounded-2xl text-center border border-white/5">
+                    <p class="text-gray-500 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-1">Episodes</p>
+                    <p id="stat-episodes" class="text-base md:text-xl font-bold">0</p>
+                </div>
+                <div class="bg-gray-900/50 p-4 md:p-6 rounded-2xl text-center border border-white/5">
+                    <p class="text-gray-500 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-1">Shows</p>
+                    <p id="stat-shows" class="text-base md:text-xl font-bold">0</p>
+                </div>
             </div>
         </div>
-    </div>
+
+        <!-- ========== EDIT PROFILE MODAL ========== -->
+        <div id="modal-edit-profile" class="hidden fixed inset-0 z-[100] modal-bg flex items-center justify-center p-4">
+            <div class="bg-[#111] border border-white/10 rounded-3xl p-6 md:p-8 w-full max-w-sm">
+                <h3 class="text-xl md:text-2xl font-bold mb-6">Edit Profile</h3>
+                <div class="space-y-3">
+                    <input id="edit-username" type="text" placeholder="Username" class="w-full rounded-xl px-4 py-3 text-sm">
+                    <input id="edit-avatar" type="text" placeholder="Avatar Image URL" class="w-full rounded-xl px-4 py-3 text-sm">
+                    <input id="edit-backdrop" type="text" placeholder="Backdrop URL" class="w-full rounded-xl px-4 py-3 text-sm">
+                    <textarea id="edit-bio" placeholder="Bio" rows="2" class="w-full rounded-xl px-4 py-3 text-sm"></textarea>
+                    <button onclick="saveProfile()" class="w-full gold-bg text-black font-bold py-3 rounded-xl">Save</button>
+                    <button onclick="document.getElementById('modal-edit-profile').classList.add('hidden')" class="w-full text-gray-500 text-sm">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Mobile Bottom Nav -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-lg border-t border-white/10 px-10 py-3 flex justify-between z-[60]">
+        <button onclick="route(event,'/')" class="nav-btn text-xl"><i class="fas fa-home"></i></button>
+        <button onclick="openSearch()" class="nav-btn text-xl"><i class="fas fa-plus gold-text"></i></button>
+        <button onclick="route(event,'/import')" class="nav-btn text-xl"><i class="fas fa-file-import"></i></button>
+        <button onclick="route(event,'/profile')" class="nav-btn text-xl"><i class="far fa-user"></i></button>
+    </nav>
+
+    <!-- Toast -->
+    <div id="toast" class="hidden fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-yellow-500 text-black px-6 py-3 rounded-full font-semibold text-sm toast"></div>
 
     <script>
         const API = "/api";
         let token = localStorage.getItem('tv_token');
 
-        async function req(p, m='GET', b=null) {
+        // ---- Helpers ----
+        async function req(p, m='GET', b=null, isForm=false) {
             const h = { 'Authorization': `Bearer ${token}` };
-            if (b) h['Content-Type'] = 'application/json';
-            const r = await fetch(API + p, { method: m, headers: h, body: b ? JSON.stringify(b) : null });
+            if (b && !isForm) h['Content-Type'] = 'application/json';
+            const opts = { method: m, headers: h };
+            if (b) opts.body = isForm ? b : JSON.stringify(b);
+            const r = await fetch(API + p, opts);
+            if (r.status === 401) { showAuth(); throw new Error('Unauthorized'); }
             return r.json();
         }
 
-        async function loadTrending() {
-            const items = await req('/trending');
-            document.getElementById('trending-shelf').innerHTML = items.map(i => `
-                <div class="shelf-item card">
-                    <img src="https://image.tmdb.org/t/p/w300${i.poster_path}" class="w-full aspect-[2/3] object-cover">
-                    <button onclick="quickAdd(${JSON.stringify(i).replace(/"/g, '&quot;')})" class="absolute top-2 right-2 w-8 h-8 rounded-full gold-bg text-black flex items-center justify-center shadow-lg"><i class="fas fa-plus text-xs"></i></button>
-                    <div class="p-2"><p class="text-[10px] font-bold truncate">${i.name}</p></div>
-                </div>
-            `).join('');
+        function showView(id) {
+            document.querySelectorAll('[id^="view-"]').forEach(v => v.classList.add('hidden'));
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
         }
 
-        async function quickAdd(i) {
-            await req('/watchlist', 'POST', { tmdb_id: i.id, title: i.name, media_type: 'tv', poster_path: i.poster_path });
+        function showAuth() {
+            token = null;
+            localStorage.removeItem('tv_token');
+            showView('view-auth');
+            document.getElementById('auth-desktop').innerHTML = '';
+            document.getElementById('auth-mobile').innerHTML = '';
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.remove('hidden');
+            setTimeout(() => t.classList.add('hidden'), 3000);
+        }
+
+        // ---- Auth ----
+        async function doAuth(mode) {
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const errEl = document.getElementById('auth-error');
+            errEl.classList.add('hidden');
+            if (!email || !password) { errEl.textContent = 'Fill in both fields'; errEl.classList.remove('hidden'); return; }
+            try {
+                if (mode === 'register') {
+                    await fetch(API + '/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email, password}) });
+                }
+                const res = await fetch(API + '/token', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email, password}) });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed');
+                token = data.access_token;
+                localStorage.setItem('tv_token', token);
+                updateAuthUI();
+                routeTo('/');
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function logout() { localStorage.removeItem('tv_token'); showAuth(); }
+
+        function updateAuthUI() {
+            const html = `<button onclick="logout()" class="text-red-400 hover:text-red-300 text-sm"><i class="fas fa-sign-out-alt"></i></button>`;
+            if (token) {
+                document.getElementById('auth-desktop').innerHTML = html;
+                document.getElementById('auth-mobile').innerHTML = html;
+            }
+        }
+
+        // ---- Routing ----
+        function route(e, path) { if(e) e.preventDefault(); window.history.pushState({}, '', path); routeTo(path); }
+        function routeTo(path) {
+            if (!token) { showAuth(); return; }
+            if (path === '/profile') { showView('view-profile'); loadProfile(); }
+            else if (path === '/import') { showView('view-import'); }
+            else { showView('view-home'); loadHome(); }
+        }
+        window.addEventListener('popstate', () => routeTo(window.location.pathname));
+
+        // ---- Home ----
+        async function loadHome() {
             loadWatchlist();
+            loadTrending();
+        }
+
+        async function loadTrending() {
+            try {
+                const items = await req('/trending');
+                if (items && items.length) {
+                    document.getElementById('trending-shelf').innerHTML = items.slice(0, 15).map(i => `
+                        <div class="shelf-item card cursor-pointer" onclick="openShow(${i.id})">
+                            <img src="https://image.tmdb.org/t/p/w300${i.poster_path}" class="w-full aspect-[2/3] object-cover" loading="lazy">
+                            <div class="p-2"><p class="text-[10px] font-bold truncate">${i.name || i.title || ''}</p></div>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) {}
         }
 
         async function loadWatchlist() {
-            const data = await req('/watchlist');
-            document.getElementById('watchlist-count').textContent = `${data.length} items`;
-            document.getElementById('watchlist-grid').innerHTML = data.map(i => `
-                <div class="card cursor-pointer" onclick="openShow(${i.tmdb_id})">
-                    <img src="https://image.tmdb.org/t/p/w400${i.poster_path}" class="w-full aspect-[2/3] object-cover">
-                    <div class="p-3">
-                        <p class="font-bold text-[11px] truncate">${i.title}</p>
-                        <div class="progress-bar mt-2"><div class="progress-fill" style="width: 30%"></div></div>
+            try {
+                const data = await req('/watchlist');
+                const grid = document.getElementById('watchlist-grid');
+                const empty = document.getElementById('empty-state');
+                document.getElementById('watchlist-count').textContent = `${data.length} items`;
+                if (!data.length) { grid.innerHTML = ''; empty.classList.remove('hidden'); return; }
+                empty.classList.add('hidden');
+                grid.innerHTML = data.map(i => `
+                    <div class="card cursor-pointer" onclick="openShow(${i.tmdb_id})">
+                        ${i.poster_path
+                            ? `<img src="https://image.tmdb.org/t/p/w400${i.poster_path}" class="w-full aspect-[2/3] object-cover" loading="lazy">`
+                            : `<div class="w-full aspect-[2/3] bg-gray-900 flex items-center justify-center"><i class="fas fa-tv text-2xl text-gray-700"></i></div>`}
+                        <div class="p-2 md:p-3">
+                            <p class="font-bold text-[11px] md:text-sm truncate">${i.title}</p>
+                            <div class="progress-bar mt-2"><div class="progress-fill" style="width:${i.episodes_watched ? Math.min(i.episodes_watched * 10, 100) : 0}%"></div></div>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            } catch(e) {}
         }
 
+        // ---- Show Detail ----
+        async function openShow(id) {
+            try {
+                const seasons = await req(`/shows/${id}/seasons`);
+                document.getElementById('modal-detail').classList.remove('hidden');
+                document.getElementById('detail-header').innerHTML = `
+                    <div class="w-full"><p class="text-lg font-bold">Episodes</p><p class="text-gray-500 text-sm">Tap circle to mark watched</p></div>
+                `;
+                document.getElementById('season-list').innerHTML = seasons.filter(s => s.season_number > 0).map(s => `
+                    <div class="bg-gray-900 p-4 md:p-6 rounded-2xl">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold">Season ${s.season_number}</h3>
+                            <button onclick="markSeason(${id}, ${s.season_number}, ${s.episodes.length})" class="text-xs gold-text underline">Mark All</button>
+                        </div>
+                        <div>
+                            ${s.episodes.map(e => `
+                                <div class="episode-row flex justify-between items-center">
+                                    <div class="flex-1 pr-3"><p class="text-sm font-medium">E${e.episode_number} · ${e.name || 'Untitled'}</p></div>
+                                    <div onclick="toggleEp(this, ${id}, ${s.season_number}, ${e.episode_number})" class="watched-btn ${e.watched ? 'active' : ''}"><i class="fas fa-check text-xs"></i></div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            } catch(e) { showToast('Failed to load'); }
+        }
+
+        function closeDetail() { document.getElementById('modal-detail').classList.add('hidden'); }
+
+        async function toggleEp(btn, showId, s, e) {
+            try { const res = await req(`/episodes/${showId}/${s}/${e}/toggle`, 'POST'); btn.classList.toggle('active', res.watched); } catch(err) {}
+        }
+
+        async function markSeason(showId, sNum, count) {
+            const eps = Array.from({length: count}, (_, i) => i + 1);
+            await req(`/shows/${showId}/seasons/toggle`, 'POST', { season_number: sNum, episodes: eps });
+            openShow(showId);
+            showToast('Season marked ✓');
+        }
+
+        // ---- Search ----
+        function openSearch() {
+            if (!token) { showAuth(); return; }
+            document.getElementById('modal-search').classList.remove('hidden');
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').innerHTML = '';
+            setTimeout(() => document.getElementById('search-input').focus(), 100);
+        }
+        function closeSearch() { document.getElementById('modal-search').classList.add('hidden'); }
+
+        async function doSearch() {
+            const q = document.getElementById('search-input').value.trim();
+            if (!q) return;
+            try {
+                const data = await req(`/search?query=${encodeURIComponent(q)}`);
+                const results = data.filter(r => r.media_type !== 'person').slice(0, 18);
+                document.getElementById('search-results').innerHTML = results.map(item => {
+                    const poster = item.poster_path ? `https://image.tmdb.org/t/p/w200${item.poster_path}` : '';
+                    const title = (item.title || item.name || 'Unknown').replace(/'/g, "\\'");
+                    return `
+                        <div class="card cursor-pointer" onclick="addToWatchlist(${item.id}, '${title}', '${item.media_type||'tv'}', '${item.poster_path||''}')">
+                            ${poster ? `<img src="${poster}" class="w-full aspect-[2/3] object-cover" loading="lazy">` : `<div class="w-full aspect-[2/3] bg-gray-900 flex items-center justify-center"><i class="fas fa-tv text-xl text-gray-700"></i></div>`}
+                            <div class="p-2"><p class="text-xs truncate">${item.title || item.name || 'Unknown'}</p></div>
+                        </div>`;
+                }).join('');
+            } catch(e) { showToast('Search failed'); }
+        }
+
+        async function addToWatchlist(id, title, mediaType, posterPath) {
+            try {
+                await req('/watchlist', 'POST', { tmdb_id: id, title, media_type: mediaType, poster_path: posterPath || null });
+                showToast('Added ✓');
+                closeSearch();
+                loadWatchlist();
+            } catch(e) { showToast('Failed to add'); }
+        }
+
+        // ---- Import ----
+        async function handleImport(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const status = document.getElementById('import-status');
+            const fd = new FormData();
+            fd.append('file', file);
+            status.textContent = 'Uploading...';
+            try {
+                const data = await req('/import', 'POST', fd, true);
+                status.textContent = data.message || 'Done';
+                showToast('Imported ✓');
+            } catch(e) { status.textContent = 'Import failed'; }
+        }
+
+        // ---- Profile ----
         async function loadProfile() {
-            const user = await req('/me');
-            const stats = await req('/stats');
-            
-            document.getElementById('profile-name').textContent = user.username || user.email.split('@')[0];
-            document.getElementById('profile-bio').textContent = user.bio || "TV Enthusiast";
-            document.getElementById('profile-avatar').innerHTML = `<img src="${user.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=minimal'}" class="w-full h-full object-cover">`;
-            document.getElementById('profile-banner').style.backgroundImage = `url(${user.backdrop_url || 'https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2000'})`;
-            
-            const t = stats.time_spent;
-            document.getElementById('stat-time').textContent = `${t.months}m ${t.days}d`;
-            document.getElementById('stat-episodes').textContent = stats.total_episodes;
-        }
-
-        async function saveProfile() {
-            const data = {
-                username: document.getElementById('edit-username').value,
-                avatar_url: document.getElementById('edit-avatar').value,
-                backdrop_url: document.getElementById('edit-backdrop').value,
-                bio: document.getElementById('edit-bio').value
-            };
-            await req('/me', 'PATCH', data);
-            closeModals();
-            loadProfile();
-        }
-
-        function route(e, path) {
-            if (e) e.preventDefault();
-            window.history.pushState({}, '', path);
-            document.querySelectorAll('#app > div').forEach(d => d.classList.add('hidden'));
-            if (path === '/profile') { document.getElementById('view-profile').classList.remove('hidden'); loadProfile(); }
-            else if (path === '/import') { document.getElementById('view-import').classList.remove('hidden'); }
-            else { document.getElementById('view-home').classList.remove('hidden'); loadWatchlist(); loadTrending(); }
+            try {
+                const [user, stats, watchlist] = await Promise.all([req('/me'), req('/stats'), req('/watchlist')]);
+                document.getElementById('profile-name').textContent = user.username || user.email.split('@')[0];
+                document.getElementById('profile-bio').textContent = user.bio || "TV Enthusiast";
+                document.getElementById('profile-avatar').innerHTML = `<img src="${user.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=minimal'}" class="w-full h-full object-cover">`;
+                document.getElementById('profile-banner').style.backgroundImage = `url(${user.backdrop_url || 'https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=2000'})`;
+                const t = stats.time_spent || {};
+                document.getElementById('stat-time').textContent = `${t.months||0}m ${t.days||0}d`;
+                document.getElementById('stat-episodes').textContent = stats.total_episodes || 0;
+                document.getElementById('stat-shows').textContent = watchlist.length;
+                document.getElementById('edit-username').value = user.username || '';
+                document.getElementById('edit-avatar').value = user.avatar_url || '';
+                document.getElementById('edit-backdrop').value = user.backdrop_url || '';
+                document.getElementById('edit-bio').value = user.bio || '';
+            } catch(e) {}
         }
 
         function openEditProfile() { document.getElementById('modal-edit-profile').classList.remove('hidden'); }
-        function closeModals() { document.querySelectorAll('.modal-bg, #modal-edit-profile').forEach(m => m.classList.add('hidden')); }
-        function logout() { localStorage.clear(); location.reload(); }
 
-        window.onpopstate = () => route(null, window.location.pathname);
-        route(null, window.location.pathname);
+        async function saveProfile() {
+            try {
+                await req('/me', 'PATCH', {
+                    username: document.getElementById('edit-username').value,
+                    avatar_url: document.getElementById('edit-avatar').value,
+                    backdrop_url: document.getElementById('edit-backdrop').value,
+                    bio: document.getElementById('edit-bio').value
+                });
+                document.getElementById('modal-edit-profile').classList.add('hidden');
+                loadProfile();
+                showToast('Profile saved ✓');
+            } catch(e) { showToast('Save failed'); }
+        }
+
+        // ---- Init ----
+        if (token) { updateAuthUI(); routeTo(window.location.pathname || '/'); }
+        else { showAuth(); }
     </script>
 </body>
 </html>
