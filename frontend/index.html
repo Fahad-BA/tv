@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>🎬 TV Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
         :root { --gold: #FFD300; --dark: #000000; --gray: #111111; }
-        body { background: var(--dark); color: #F5F5F5; font-family: 'Poppins', sans-serif; margin-bottom: 90px; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--dark); color: #F5F5F5; font-family: 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; }
         .gold-text { color: var(--gold); }
         .gold-bg { background: var(--gold); }
         .card { background: #161616; border-radius: 16px; overflow: hidden; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
@@ -26,7 +26,7 @@
         /* Native-style Nav */
         .bottom-nav { 
             position: fixed; bottom: 0; left: 0; right: 0; height: 85px; 
-            background: rgba(0,0,0,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            background: rgba(0,0,0,0.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border-t: 1px solid rgba(255,255,255,0.05); z-index: 1000; 
             display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom);
         }
@@ -49,12 +49,16 @@
         .toast { animation: fadeIn 0.3s, fadeOut 0.3s 2.7s; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeOut { to { opacity: 0; } }
+
+        /* Fix overlapping content */
+        #app { padding-top: 10px; padding-bottom: 120px; }
+        @media (min-width: 768px) { #app { padding-top: 40px; } }
     </style>
 </head>
 <body>
 
     <!-- Header (Desktop Only) -->
-    <header class="hidden md:flex sticky top-0 z-50 bg-black/90 px-8 py-4 justify-between border-b border-white/10">
+    <header class="hidden md:flex sticky top-0 z-[500] bg-black/95 px-8 py-4 justify-between border-b border-white/10">
         <a href="/" onclick="route(event, '/')" class="text-3xl font-bold">🎬</a>
         <nav class="flex gap-10 font-semibold items-center">
             <a href="/" onclick="route(event, '/')" class="hover:text-yellow-500">Watchlist</a>
@@ -66,7 +70,7 @@
     </header>
 
     <!-- Mobile Top Bar -->
-    <header class="md:hidden sticky top-0 z-50 bg-black/90 px-4 py-3 flex justify-between items-center border-b border-white/10">
+    <header class="md:hidden sticky top-0 z-[500] bg-black/95 px-4 py-3 flex justify-between items-center border-b border-white/10">
         <a href="/" onclick="route(event,'/')" class="text-2xl">🎬</a>
         <div class="flex gap-3 items-center">
             <button onclick="openSearch()" class="w-9 h-9 rounded-full bg-gray-900 flex items-center justify-center"><i class="fas fa-search text-sm"></i></button>
@@ -74,7 +78,7 @@
         </div>
     </header>
 
-    <main id="app" class="max-w-6xl mx-auto p-4 md:p-10">
+    <main id="app" class="max-w-6xl mx-auto px-4 md:px-10">
 
         <!-- ========== AUTH VIEW ========== -->
         <div id="view-auth" class="hidden flex flex-col items-center justify-center min-h-[60vh] gap-6">
@@ -168,7 +172,10 @@
             </div>
 
             <div class="p-6 max-w-6xl mx-auto">
-                <button onclick="logout()" class="w-full border border-red-500/50 text-red-500 font-bold py-3.5 rounded-xl transition">Sign Out</button>
+                <h3 class="text-xl font-bold mb-6 flex items-center gap-2"><i class="fas fa-tasks gold-text"></i> Manage Followed Shows</h3>
+                <div id="manage-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Manage shows list -->
+                </div>
             </div>
         </div>
 
@@ -179,7 +186,7 @@
                     <i class="fas fa-file-zipper text-3xl text-black"></i>
                 </div>
                 <h2 class="text-3xl font-bold mb-4">Sync History</h2>
-                <p class="text-gray-500 mb-10 text-sm leading-relaxed">Upload your TV Time .zip file. We'll parse every show and episode history for you.</p>
+                <p class="text-gray-500 mb-10 text-sm leading-relaxed">Upload your TV Time .zip file. We'll parse every show and episode history for you with deep TMDB mapping.</p>
                 <input type="file" id="import-file" class="hidden" accept=".zip,.csv" onchange="handleImport(this)">
                 <button onclick="document.getElementById('import-file').click()" class="btn-main w-full shadow-lg">Upload Archive</button>
                 <p id="import-status" class="mt-6 text-sm gold-text font-medium"></p>
@@ -240,7 +247,7 @@
     </nav>
 
     <!-- Toast -->
-    <div id="toast" class="hidden fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-[2000] gold-bg text-black px-6 py-3 rounded-full font-semibold text-sm toast"></div>
+    <div id="toast" class="hidden fixed bottom-28 md:bottom-8 left-1/2 -translate-x-1/2 z-[2000] gold-bg text-black px-6 py-3 rounded-full font-semibold text-sm toast shadow-xl"></div>
 
     <script>
         const API = "/api";
@@ -261,6 +268,7 @@
         function showView(id) {
             document.querySelectorAll('#app > div').forEach(d => d.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
+            window.scrollTo(0,0);
         }
 
         function showAuth() {
@@ -335,7 +343,7 @@
                     <div class="shelf-item card">
                         <div class="relative">
                             <img src="https://image.tmdb.org/t/p/w300${i.poster_path}" class="w-full aspect-[2/3] object-cover" loading="lazy">
-                            <button onclick="quickAdd(${i.id}, '${(i.name||'').replace(/'/g,"\\'")}', '${i.poster_path||''}')" class="absolute top-2 right-2 w-9 h-9 rounded-full gold-bg text-black flex items-center justify-center shadow-lg"><i class="fas fa-plus text-xs"></i></button>
+                            <button onclick="quickAdd(${i.id}, '${(i.name||i.title||'').replace(/'/g,"\\'")}', '${i.poster_path||''}')" class="absolute top-2 right-2 w-9 h-9 rounded-full gold-bg text-black flex items-center justify-center shadow-lg"><i class="fas fa-plus text-xs"></i></button>
                         </div>
                         <div class="p-3"><p class="text-[10px] font-bold truncate">${i.name || i.title || ''}</p></div>
                     </div>
@@ -360,10 +368,11 @@
                         ${i.poster_path ? `<img src="https://image.tmdb.org/t/p/w400${i.poster_path}" class="w-full aspect-[2/3] object-cover" loading="lazy">` : `<div class="w-full aspect-[2/3] bg-gray-900 flex items-center justify-center"><i class="fas fa-tv text-2xl text-gray-700"></i></div>`}
                         <div class="p-4">
                             <p class="font-bold text-xs truncate">${i.title}</p>
-                            <div class="progress-bar mt-3"><div class="progress-fill" style="width:${i.episodes_watched ? Math.min(i.episodes_watched * 10, 100) : 0}%"></div></div>
+                            <div class="progress-bar mt-3"><div class="progress-fill" style="width:${i.episodes_watched ? Math.min(i.episodes_watched * 5, 100) : 0}%"></div></div>
                         </div>
                     </div>
                 `).join('');
+                
                 const select = document.getElementById('backdrop-show-select');
                 select.innerHTML = '<option value="">Select a show for backdrop</option>' + data.map(i => `<option value="${i.tmdb_id}">${i.title}</option>`).join('');
             } catch(e) {}
@@ -454,7 +463,7 @@
             const status = document.getElementById('import-status');
             const formData = new FormData();
             formData.append('file', input.files[0]);
-            status.textContent = "Importing all records...";
+            status.textContent = "Importing all records with deep mapping...";
             try {
                 const res = await req('/import', 'POST', formData, true);
                 status.textContent = res.message;
@@ -478,7 +487,28 @@
                 document.getElementById('edit-username').value = user.username || "";
                 document.getElementById('edit-bio').value = user.bio || "";
                 document.getElementById('edit-avatar-preview').innerHTML = `<img src="${user.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=minimal'}" class="w-full h-full object-cover">`;
+                
+                // Manage shows grid
+                document.getElementById('manage-grid').innerHTML = watchlist.map(i => `
+                    <div class="flex items-center gap-4 bg-[#111] p-3 rounded-2xl border border-white/5">
+                        <img src="https://image.tmdb.org/t/p/w200${i.poster_path}" class="w-12 h-16 rounded-lg object-cover">
+                        <div class="flex-1 overflow-hidden">
+                            <p class="font-bold text-sm truncate">${i.title}</p>
+                            <p class="text-gray-500 text-[10px]">${i.episodes_watched || 0} episodes</p>
+                        </div>
+                        <button onclick="unfollowShow(${i.tmdb_id})" class="text-red-500 p-2 hover:bg-red-500/10 rounded-full transition"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `).join('');
             } catch(e) {}
+        }
+
+        async function unfollowShow(id) {
+            if(!confirm('Are you sure you want to unfollow this show and delete all watch history?')) return;
+            try {
+                await req(`/watchlist/${id}`, 'DELETE');
+                showToast('Deleted ✓');
+                loadProfile();
+            } catch(e) { showToast('Delete failed'); }
         }
 
         function openEditProfile() { document.getElementById('modal-edit-profile').classList.remove('hidden'); }

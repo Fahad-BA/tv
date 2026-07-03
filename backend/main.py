@@ -113,6 +113,19 @@ def get_watchlist(db: Session = Depends(database.get_db), current_user: models.U
 def add_to_watchlist(item: schemas.WatchlistItemCreate, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     return models.add_watchlist_item(db, item, current_user.id)
 
+@app.delete("/api/watchlist/{tmdb_id}")
+def delete_from_watchlist(tmdb_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    item = db.query(models.WatchlistItem).filter(models.WatchlistItem.user_id == current_user.id, models.WatchlistItem.tmdb_id == tmdb_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    # Delete all episode watches for this show
+    db.query(models.EpisodeWatch).filter(models.EpisodeWatch.user_id == current_user.id, models.EpisodeWatch.show_id == tmdb_id).delete()
+    
+    db.delete(item)
+    db.commit()
+    return {"message": "Show and history deleted"}
+
 @app.get("/api/shows/{show_id}/seasons")
 def get_show_seasons(show_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
     details = tmdb.get_show_details(show_id)
@@ -173,43 +186,70 @@ async def import_tv_time(file: UploadFile = File(...), db: Session = Depends(dat
     content = await file.read()
     filename = file.filename.lower()
     items_added = 0
+    TMDB_API_KEY = os.getenv("TMDB_API_KEY")
     
+    def resolve_tmdb_id(show_name: str, tvdb_id: str = None):
+        if tvdb_id:
+            try:
+                res = requests.get(f"https://api.themoviedb.org/3/find/{tvdb_id}?api_key={TMDB_API_KEY}&external_source=tvdb_id").json()
+                results = res.get('tv_results', [])
+                if results: return results[0]
+            except: pass
+        try:
+            res = requests.get(f"https://api.themoviedb.org/3/search/tv?api_key={TMDB_API_KEY}&query={show_name}").json()
+            results = res.get('results', [])
+            if results: return results[0]
+        except: pass
+        return None
+
     def process_import(data_stream, fname):
         nonlocal items_added
         if fname.endswith('.csv'):
             decoded = data_stream.decode('utf-8', errors='ignore')
             reader = csv.DictReader(io.StringIO(decoded))
+            # Resilient header detection
+            cols = {c.lower().replace('_', '').replace(' ', ''): c for c in reader.fieldnames}
+            
             for row in reader:
-                show_name = row.get('tv_show_name') or row.get('show_name') or row.get('Show Name')
-                if show_name:
-                    # Map to watchlist
-                    models.add_watchlist_item(db, schemas.WatchlistItemCreate(tmdb_id=0, title=show_name, media_type='tv'), current_user.id)
+                s_name = row.get(cols.get('tvshowname', cols.get('showname', '')))
+                tvdb_id = row.get(cols.get('tvshowid', cols.get('showid', cols.get('seriesid', ''))))
+                
+                if s_name:
+                    tmdb_show = resolve_tmdb_id(s_name, tvdb_id)
+                    tmdb_id = tmdb_show['id'] if tmdb_show else 0
+                    title = tmdb_show['name'] if tmdb_show else s_name
+                    poster = tmdb_show['poster_path'] if tmdb_show else None
                     
-                    # Map episode watch
+                    models.add_watchlist_item(db, schemas.WatchlistItemCreate(
+                        tmdb_id=tmdb_id, title=title, media_type='tv', poster_path=poster
+                    ), current_user.id)
+                    
                     try:
-                        s_num = int(row.get('season_number', row.get('Season', 0)))
-                        e_num = int(row.get('episode_number', row.get('Episode', 0)))
+                        s_num = int(row.get(cols.get('seasonnumber', cols.get('season', '')), 0))
+                        e_num = int(row.get(cols.get('episodenumber', cols.get('episode', '')), 0))
                         if s_num and e_num:
-                            existing_watch = db.query(models.EpisodeWatch).filter(
+                            existing = db.query(models.EpisodeWatch).filter(
                                 models.EpisodeWatch.user_id == current_user.id,
-                                models.EpisodeWatch.show_id == 0, # Imported shows without TMDB ID yet
+                                models.EpisodeWatch.show_id == tmdb_id,
                                 models.EpisodeWatch.season_number == s_num,
                                 models.EpisodeWatch.episode_number == e_num
                             ).first()
-                            if not existing_watch:
-                                db.add(models.EpisodeWatch(user_id=current_user.id, show_id=0, season_number=s_num, episode_number=e_num))
+                            if not existing:
+                                db.add(models.EpisodeWatch(user_id=current_user.id, show_id=tmdb_id, season_number=s_num, episode_number=e_num))
                                 items_added += 1
-                    except:
-                        pass # Ignore row if episode data malformed
+                    except: pass
 
     if filename.endswith('.zip'):
         with zipfile.ZipFile(io.BytesIO(content)) as z:
+            # First pass: followed_shows or similar to get titles
             for n in z.namelist():
-                if n.endswith('.csv'): 
+                if 'followed' in n.lower() and n.endswith('.csv'):
                     process_import(z.read(n), n)
-    else: 
-        process_import(content, filename)
-    
+            # Second pass: seen_episodes
+            for n in z.namelist():
+                if 'seen' in n.lower() and n.endswith('.csv'):
+                    process_import(z.read(n), n)
+    else: process_import(content, filename)
     db.commit()
     return {"message": f"Successfully imported data across all records.", "count": items_added}
 
