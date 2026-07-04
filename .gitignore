@@ -1,4 +1,22 @@
+# Python
 venv/
 __pycache__/
-*.db
 *.pyc
+*.pyo
+
+# Node
+node_modules/
+dist/
+
+# DB
+*.db
+*.db-wal
+*.db-shm
+
+# Env
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
