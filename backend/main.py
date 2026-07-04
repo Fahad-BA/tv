@@ -72,7 +72,7 @@ async def upload_avatar(file: UploadFile = File(...), db: Session = Depends(data
 
 @app.get("/api/me/followed-shows-backdrops")
 def get_followed_backdrops(show_id: int, current_user: models.User = Depends(auth.get_current_user)):
-    TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+    TMDB_API_KEY = os.environ["TMDB_API_KEY"]
     url = f"https://api.themoviedb.org/3/tv/{show_id}/images?api_key={TMDB_API_KEY}"
     res = requests.get(url).json()
     backdrops = res.get('backdrops', [])[:4]
@@ -90,7 +90,7 @@ def get_stats(db: Session = Depends(database.get_db), current_user: models.User 
 # --- Media Tracking ---
 @app.get("/api/trending")
 def get_trending(current_user: models.User = Depends(auth.get_current_user)):
-    TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+    TMDB_API_KEY = os.environ["TMDB_API_KEY"]
     url = f"https://api.themoviedb.org/3/trending/tv/week?api_key={TMDB_API_KEY}"
     return requests.get(url).json().get("results", [])
 
@@ -186,7 +186,7 @@ async def import_tv_time(file: UploadFile = File(...), db: Session = Depends(dat
     content = await file.read()
     filename = file.filename.lower()
     items_added = 0
-    TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+    TMDB_API_KEY = os.environ["TMDB_API_KEY"]
     
     def resolve_tmdb_id(show_name: str, tvdb_id: str = None):
         if tvdb_id:
