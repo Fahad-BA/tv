@@ -1,39 +1,82 @@
-# TV Tracker - Self-Hosted Application
+<div align="center">
 
-A beautifully designed self-hosted TV show and movie tracking application built with Python (FastAPI) and SQLite.
+# 🎬 TV Tracker
 
-## Features
-- TMDB Integration for metadata
-- Watchlist and progress tracking
-- TV Time data import
-- Modern, responsive Tailwind UI
-- Direct port serving (no Nginx required)
-- Optimized for Cloudflare Tunnels
+**A self-hosted TV show & movie tracking application with TMDB integration**
 
-## Manual Installation (Linux)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![TMDB](https://img.shields.io/badge/TMDB-API-01B4E4?style=flat-square)](https://www.themoviedb.org/)
 
-### 1. Prerequisites
+</div>
+
+---
+
+## ✨ Features
+
+- **🔍 TMDB Integration** — Rich metadata, posters, and backdrops from The Movie Database
+- **📺 Episode Tracking** — Mark episodes as watched, track progress per season
+- **📋 Watchlist** — Organize shows by status: Planning, Watching, Completed
+- **⭐ Ratings & Favorites** — Rate what you watch and mark your all-time favorites
+- **📥 TV Time Import** — Migrate your existing watch history from TV Time seamlessly
+- **👤 User Accounts** — JWT auth with custom avatars and profile backdrops
+- **📱 Mobile-First Design** — Native app-like UI with bottom navigation, optimized for touch
+- **🏗️ Self-Hosted** — Runs on a single port, no Nginx required. Perfect behind Cloudflare Tunnels
+- **🎨 Gold & Dark Theme** — Sleek cinema-inspired aesthetic
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | FastAPI, Uvicorn |
+| **Frontend** | HTML, Tailwind CSS (CDN), Font Awesome, Vanilla JS |
+| **Database** | SQLite via SQLAlchemy ORM |
+| **Auth** | JWT (python-jose) + bcrypt password hashing |
+| **API** | TMDB API v3 |
+| **Deployment** | Systemd, Cloudflare Tunnels |
+
+---
+
+## 📦 Installation
+
+### Prerequisites
+
 - Python 3.9+
-- TMDB API Key
+- A free [TMDB API Key](https://www.themoviedb.org/settings/api)
 
-### 2. Application Setup
+### Quick Start
+
 ```bash
+# Clone the repo
 git clone https://github.com/Fahad-BA/tv.git
 cd tv/backend
+
+# Set up virtual environment
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-export TMDB_API_KEY="your_api_key"
-# Runs the application on port 8000
+
+# Configure
+export TMDB_API_KEY="your_api_key_here"
+
+# Run 🚀
 python main.py
 ```
 
-### 3. Systemd Service (Production)
-To keep the application running in the background and start on boot, create `/etc/systemd/system/tv.service`:
+The app will be available at `http://localhost:8000`.
+
+### Production Deployment (Systemd)
+
+Create `/etc/systemd/system/tv.service`:
 
 ```ini
 [Unit]
-Description=TV Tracker Unified Service
+Description=TV Tracker Service
 After=network.target
 
 [Service]
@@ -43,13 +86,81 @@ WorkingDirectory=/path/to/tv/backend
 Environment="PATH=/path/to/tv/backend/venv/bin"
 Environment="TMDB_API_KEY=your_tmdb_api_key"
 ExecStart=/path/to/tv/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-### 4. Cloudflare Configuration
-Since the app runs on a direct port, you can point your Cloudflare Tunnel (cloudflared) or Page Rule directly to `http://localhost:8000`.
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now tv
+```
 
-## Import from TV Time
-Access the application via your domain or direct IP:port and navigate to the Import section to upload your data.
+### Cloudflare Tunnel
+
+Point your Cloudflare Tunnel (`cloudflared`) directly to `http://localhost:8000` — no reverse proxy needed.
+
+---
+
+## 📥 Import from TV Time
+
+1. Export your data from the TV Time app (Settings → Export)
+2. Open TV Tracker and navigate to **Import**
+3. Upload your TV Time export file
+4. Your shows and watch history will be matched via TMDB and imported automatically
+
+---
+
+## 📁 Project Structure
+
+```
+tv/
+├── backend/
+│   ├── main.py          # FastAPI app, all API routes
+│   ├── models.py        # SQLAlchemy models (User, WatchlistItem, EpisodeWatch)
+│   ├── schemas.py       # Pydantic request/response schemas
+│   ├── auth.py          # JWT auth, password hashing
+│   ├── tmdb.py          # TMDB API client wrapper
+│   ├── database.py      # SQLAlchemy engine & session
+│   ├── requirements.txt # Python dependencies
+│   └── static/          # Uploaded avatars & assets
+├── frontend/
+│   └── index.html       # Single-page app (Tailwind + vanilla JS)
+├── tv_tracker.db        # SQLite database (auto-created)
+└── README.md
+```
+
+---
+
+## 📸 Screenshots
+
+> _Add screenshots here after deployment_
+
+<!-- ![Dashboard](screenshots/dashboard.png)
+ ![Show Detail](screenshots/show-detail.png)
+ ![Import](screenshots/import.png) -->
+
+---
+
+## 🔑 Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TMDB_API_KEY` | ✅ | Your TMDB v3 API key |
+
+---
+
+## 📝 License
+
+This project is open-source under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+
+**Built with ❤️ by [Fahad Alhuqaili](https://github.com/Fahad-BA)**
+
+⭐ If this project helped you, consider giving it a star!
+
+</div>
