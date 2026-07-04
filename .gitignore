@@ -17,6 +17,9 @@ dist/
 .env
 .env.*
 
+# Uploads (avatars)
+backend/static/uploads/
+
 # IDE
 .vscode/
 .idea/
