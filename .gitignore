@@ -16,6 +16,7 @@ dist/
 # Env
 .env
 .env.*
+!.env.example
 
 # Uploads (avatars)
 backend/static/uploads/
