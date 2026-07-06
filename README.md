@@ -18,11 +18,12 @@
 ## ✨ Features
 
 - **🔍 TMDB Integration** — Rich metadata, posters, and backdrops from The Movie Database
-- **📺 Episode Tracking** — Mark episodes as watched, track progress per season
-- **📋 Watchlist** — Organize shows by status: Planning, Watching, Completed
-- **⭐ Ratings & Favorites** — Rate what you watch and mark your all-time favorites
-- **📥 TV Time Import** — Migrate your existing watch history from TV Time seamlessly
-- **👤 User Accounts** — JWT auth with custom avatars and profile backdrops
+- **📺 Episode Tracking** — Mark episodes as watched, track progress per season, toggle entire seasons at once
+- **📋 Watchlist** — Add shows to your watchlist, search TMDB, and manage your library
+- **🔥 Trending** — Discover trending shows each week from TMDB
+- **📥 TV Time Import** — Migrate your existing watch history from TV Time via CSV or ZIP export
+- **👤 User Accounts** — JWT auth with custom avatars, profile backdrops, and bio
+- **📊 Profile Stats** — Track total episodes watched and time spent across all shows
 - **📱 Mobile-First Design** — Native app-like UI with bottom navigation, optimized for touch
 - **🏗️ Self-Hosted** — Runs on a single port, no Nginx required. Perfect behind Cloudflare Tunnels
 - **🎨 Gold & Dark Theme** — Sleek cinema-inspired aesthetic
@@ -62,7 +63,8 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Configure
-export TMDB_API_KEY="your_api_key_here"
+cp .env.example .env
+# Edit .env and add your TMDB_API_KEY and SECRET_KEY
 
 # Run 🚀
 python main.py
@@ -85,6 +87,7 @@ Group=your-user
 WorkingDirectory=/path/to/tv/backend
 Environment="PATH=/path/to/tv/backend/venv/bin"
 Environment="TMDB_API_KEY=your_tmdb_api_key"
+Environment="SECRET_KEY=your_secret_key"
 ExecStart=/path/to/tv/backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=on-failure
 
@@ -105,10 +108,10 @@ Point your Cloudflare Tunnel (`cloudflared`) directly to `http://localhost:8000`
 
 ## 📥 Import from TV Time
 
-1. Export your data from the TV Time app (Settings → Export)
+1. Export your data from the TV Time app (Settings → Export) — both **CSV** and **ZIP** formats are supported
 2. Open TV Tracker and navigate to **Import**
 3. Upload your TV Time export file
-4. Your shows and watch history will be matched via TMDB and imported automatically
+4. Your shows and watch history will be matched via TMDB and imported automatically (multi-show imports supported)
 
 ---
 
@@ -124,6 +127,7 @@ tv/
 │   ├── tmdb.py          # TMDB API client wrapper
 │   ├── database.py      # SQLAlchemy engine & session
 │   ├── requirements.txt # Python dependencies
+│   ├── .env.example     # Template for environment variables
 │   └── static/          # Uploaded avatars & assets
 ├── frontend/
 │   └── index.html       # Single-page app (Tailwind + vanilla JS)
@@ -148,6 +152,30 @@ tv/
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `TMDB_API_KEY` | ✅ | Your TMDB v3 API key |
+| `SECRET_KEY` | ✅ | JWT signing secret (use a strong random string) |
+
+---
+
+## 🔌 API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/register` | Create a new account |
+| `POST` | `/api/token` | Login and receive JWT |
+| `GET` | `/api/me` | Get current user profile |
+| `PATCH` | `/api/me` | Update username, bio, backdrop |
+| `POST` | `/api/me/avatar` | Upload profile avatar |
+| `GET` | `/api/me/followed-shows-backdrops` | Get backdrop images for a followed show |
+| `GET` | `/api/stats` | Get episode count and time spent |
+| `GET` | `/api/trending` | Get weekly trending TV shows |
+| `GET` | `/api/search` | Search TMDB for shows and movies |
+| `GET` | `/api/watchlist` | List current user's watchlist |
+| `POST` | `/api/watchlist` | Add a show to watchlist |
+| `DELETE` | `/api/watchlist/{tmdb_id}` | Remove show and all watch history |
+| `GET` | `/api/shows/{id}/seasons` | Get seasons with episode watch state |
+| `POST` | `/api/episodes/{id}/{s}/{e}/toggle` | Toggle watched state of an episode |
+| `POST` | `/api/shows/{id}/seasons/toggle` | Mark all episodes in a season as watched |
+| `POST` | `/api/import` | Import TV Time CSV or ZIP export |
 
 ---
 
